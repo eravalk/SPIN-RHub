@@ -1,0 +1,14 @@
+{
+  "version": "0.3.3-alpha",
+  "java_compile": true,
+  "artwork_url_tests": "passed",
+  "lyrics_fixture_tests": "passed",
+  "ui_mock_bridge": "passed",
+  "android_device_run": false,
+  "live_lyrics_probe": {
+    "lrclib.net": 502,
+    "www.lrclib.net": 525,
+    "api.lyrics.ovh": 200
+  },
+  "notes": "UI artwork uses fixture bytes; live Android image decoding, storage and network still require device verification."
+}

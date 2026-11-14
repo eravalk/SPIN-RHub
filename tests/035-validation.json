@@ -1,0 +1,40 @@
+{
+  "version": "0.3.5-alpha",
+  "jvm_tests": [
+    "LyricsProviderTest",
+    "LyricsSourcesTest",
+    "LyricsTextTest",
+    "LyricsSearchTest"
+  ],
+  "ui_mock_checks": [
+    "manual_text_save_error_success",
+    "import_bridge",
+    "needle_preview_without_seek_flood",
+    "stale_playback_during_drag",
+    "vinyl_grooves"
+  ],
+  "android_device_tested": false,
+  "live_probes": [
+    {
+      "source": "LRCLIB",
+      "status": 503,
+      "seconds": 12.1
+    },
+    {
+      "source": "lyrics.ovh",
+      "status": 200,
+      "text_present": true,
+      "seconds": 6.8
+    },
+    {
+      "source": "KuGou",
+      "status": 401,
+      "seconds": 6.4
+    },
+    {
+      "source": "QQ",
+      "status": 401,
+      "seconds": 6.4
+    }
+  ]
+}

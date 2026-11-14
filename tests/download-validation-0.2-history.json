@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-31T07:14:55.970717+00:00",
+  "module_fingerprint": "b8433482d859f888a4e98b390d5da7ded2a843ae19e437d58665c80afb7d552a",
+  "release_gate": "blocked",
+  "android_download_manager_verified": false,
+  "sources": {
+    "SoundCloud": {
+      "search": false,
+      "formats": false,
+      "download": false,
+      "decode": false,
+      "blocked_phase": "search",
+      "error_type": "ParsingException"
+    },
+    "YouTube": {
+      "search": false,
+      "formats": false,
+      "download": false,
+      "decode": false,
+      "blocked_phase": "search",
+      "error_type": "UnknownHostException"
+    }
+  }
+}

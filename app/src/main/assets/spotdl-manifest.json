@@ -1,0 +1,146 @@
+{
+  "engine": "spotDL",
+  "version": "4.6.0",
+  "bundle_sha256": "337313d8fab9b2d2a0400f854e4ab96bf381b1ae23069ef61fbb0857ad5e4722",
+  "dependencies": [
+    {
+      "name": "rapidfuzz",
+      "version": "3.10.1",
+      "file": "rapidfuzz-3.10.1.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/e1/39/e3bcb901c2746734cd70151253bf9e61c688d3c415227b08e6fbf7eb5d7f/rapidfuzz-3.10.1.tar.gz",
+      "sha256": "5a15546d847a915b3f42dc79ef9b0c78b998b4e2c53b252e7166284066585979"
+    },
+    {
+      "name": "pykakasi",
+      "version": "2.3.0",
+      "file": "pykakasi-2.3.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/0f/e8/11644fe823e05c583b330e9fb81e3e8fc5d079036512a8300fc157be349d/pykakasi-2.3.0-py3-none-any.whl",
+      "sha256": "26d21b090048ff45c6a4d8e962426b7951767216008ec30358e8a9d74af77f29"
+    },
+    {
+      "name": "jaconv",
+      "version": "0.4.0",
+      "file": "jaconv-0.4.0.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/d2/e1/670cefc7f00b0e1890e114a37a98ea425f7e06131342aeb9636856ac663c/jaconv-0.4.0.tar.gz",
+      "sha256": "32da74b247f276e09a52d6b35c153df2387965cb85a6f034cc8af21d446f8161"
+    },
+    {
+      "name": "deprecated",
+      "version": "1.2.18",
+      "file": "Deprecated-1.2.18-py2.py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/6e/c6/ac0b6c1e2d138f1002bcf799d330bd6d85084fece321e662a14223794041/Deprecated-1.2.18-py2.py3-none-any.whl",
+      "sha256": "bd5011788200372a32418f888e326a09ff80d0214bd961147cfed01b5c018eec"
+    },
+    {
+      "name": "wrapt",
+      "version": "1.17.2",
+      "file": "wrapt-1.17.2-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/2d/82/f56956041adef78f849db6b289b282e72b55ab8045a75abad81898c28d19/wrapt-1.17.2-py3-none-any.whl",
+      "sha256": "b18f2d1533a71f069c7f82d524a52599053d4c7166e9dd374ae2136b7f40f7c8"
+    },
+    {
+      "name": "python-slugify",
+      "version": "8.0.4",
+      "file": "python_slugify-8.0.4-py2.py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/a4/62/02da182e544a51a5c3ccf4b03ab79df279f9c60c5e82d5e8bec7ca26ac11/python_slugify-8.0.4-py2.py3-none-any.whl",
+      "sha256": "276540b79961052b66b7d116620b36518847f52d5fd9e3a70164fc8c50faa6b8"
+    },
+    {
+      "name": "text-unidecode",
+      "version": "1.3",
+      "file": "text_unidecode-1.3-py2.py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/a6/a5/c0b6468d3824fe3fde30dbb5e1f687b291608f9473681bbf7dabbf5a87d7/text_unidecode-1.3-py2.py3-none-any.whl",
+      "sha256": "1311f10e8b895935241623731c2ba64f4c455287888b18189350b67134a822e8"
+    },
+    {
+      "name": "rich",
+      "version": "13.9.4",
+      "file": "rich-13.9.4-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/19/71/39c7c0d87f8d4e6c020a393182060eaefeeae6c01dab6a84ec346f2567df/rich-13.9.4-py3-none-any.whl",
+      "sha256": "6049d5e6ec054bf2779ab3358186963bac2ea89175919d699e378b99738c2a90"
+    },
+    {
+      "name": "pygments",
+      "version": "2.19.1",
+      "file": "pygments-2.19.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/8a/0b/9fcc47d19c48b59121088dd6da2488a49d5f72dacf8262e2790a1d2c7d15/pygments-2.19.1-py3-none-any.whl",
+      "sha256": "9ea1544ad55cecf4b8242fab6dd35a93bbce657034b0611ee383099054ab6d8c"
+    },
+    {
+      "name": "markdown-it-py",
+      "version": "3.0.0",
+      "file": "markdown_it_py-3.0.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/42/d7/1ec15b46af6af88f19b8e5ffea08fa375d433c998b8a7639e76935c14f1f/markdown_it_py-3.0.0-py3-none-any.whl",
+      "sha256": "355216845c60bd96232cd8d8c40e8f9765cc86f46880e43a8fd22dc1a1a8cab1"
+    },
+    {
+      "name": "mdurl",
+      "version": "0.1.2",
+      "file": "mdurl-0.1.2-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl",
+      "sha256": "84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8"
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.12.2",
+      "file": "typing_extensions-4.12.2-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/26/9f/ad63fc0248c5379346306f8668cda6e2e2e9c95e01216d2b8ffd9ff037d0/typing_extensions-4.12.2-py3-none-any.whl",
+      "sha256": "04e5ca0351e0f3f85c6853954072df659d0d13fac324d0072316b67d7794700d"
+    },
+    {
+      "name": "requests",
+      "version": "2.32.3",
+      "file": "requests-2.32.3-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/f9/9b/335f9764261e915ed497fcdeb11df5dfd6f7bf257d4a6a2a686d80da4d54/requests-2.32.3-py3-none-any.whl",
+      "sha256": "70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6"
+    },
+    {
+      "name": "urllib3",
+      "version": "2.3.0",
+      "file": "urllib3-2.3.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/c8/19/4ec628951a74043532ca2cf5d97b7b14863931476d117c471e8e2b1eb39f/urllib3-2.3.0-py3-none-any.whl",
+      "sha256": "1cee9ad369867bfdbbb48b7dd50374c0967a0bb7710050facf0dd6911440e3df"
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.4.1",
+      "file": "charset_normalizer-3.4.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/0e/f6/65ecc6878a89bb1c23a086ea335ad4bf21a588990c3f535a227b9eea9108/charset_normalizer-3.4.1-py3-none-any.whl",
+      "sha256": "d98b1668f06378c6dbefec3b92299716b931cd4e6061f3c875a71ced1780ab85"
+    },
+    {
+      "name": "idna",
+      "version": "3.10",
+      "file": "idna-3.10-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/76/c6/c88e154df9c4e1a2a66ccf0005a88dfb2650c1dffb6f5ce603dfbd452ce3/idna-3.10-py3-none-any.whl",
+      "sha256": "946d195a0d259cbba61165e88e65941f16e9b36ea6ddb97f00452bae8b1287d3"
+    },
+    {
+      "name": "certifi",
+      "version": "2025.1.31",
+      "file": "certifi-2025.1.31-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/38/fc/bce832fd4fd99766c04d1ee0eead6b0ec6486fb100ae5e74c1d91292b982/certifi-2025.1.31-py3-none-any.whl",
+      "sha256": "ca78db4565a652026a4db2bcdf68f2fb589ea80d0be70e03929ed730746b84fe"
+    },
+    {
+      "name": "ytmusicapi",
+      "version": "1.12.1",
+      "file": "ytmusicapi-1.12.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/53/6d/f7156e7ab9953d09e14ef538de4e92c484169fac19d207b19b9d9eb9c845/ytmusicapi-1.12.1-py3-none-any.whl",
+      "sha256": "2a53f6df504b97b93a4d41c804b699b46190207cb9d864fcf4edeb338b1f15d9"
+    },
+    {
+      "name": "spotdl",
+      "version": "4.6.0",
+      "sha256": "1b58d23446e2318c04f36bf7fa3da673afb9c38a333479a4be1b5859f7eb0cda",
+      "modules": [
+        "types/song.py",
+        "types/result.py",
+        "utils/formatter.py",
+        "utils/matching.py",
+        "utils/logging.py"
+      ],
+      "scope": "unmodified matching modules with native catalog adapter"
+    }
+  ]
+}

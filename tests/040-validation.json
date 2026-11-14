@@ -1,0 +1,34 @@
+{
+  "version": "0.4.0-alpha",
+  "android_compilation": "passed",
+  "signed": true,
+  "android_device_tested": false,
+  "jvm_tests": [
+    "LyricsProviderTest",
+    "LyricsSourcesTest",
+    "LyricsTextTest",
+    "LyricsSearchTest",
+    "ArtworkUrlTest"
+  ],
+  "browser_mock_tests": "passed",
+  "viewport_widths": [
+    344,
+    390,
+    480,
+    720,
+    1024,
+    1280
+  ],
+  "landscape": [
+    640,
+    360
+  ],
+  "limitations": [
+    "OAuth unavailable",
+    "External lyric services not retested this release"
+  ],
+  "application_id": "com.spinplayer.next",
+  "signing": "New dedicated key, backup supplied separately",
+  "signature_verified": true,
+  "certificate_sha256": "2ca31960c7451a23e94f8a08762f9c45b78f2d62eadacbd50e7060df87ae14ed"
+}

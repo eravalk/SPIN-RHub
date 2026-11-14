@@ -1,0 +1,14 @@
+{
+  "version": "1.2",
+  "version_code": 17,
+  "android_build": true,
+  "original_signing_certificate": true,
+  "javascript_syntax": true,
+  "navigation_persistence_test": true,
+  "release_metadata_test": true,
+  "animation_regressions": true,
+  "android_device_tested": false,
+  "live_update_download_tested": false,
+  "browser_ui_tested": false,
+  "browser_blocker": "Headless Chromium socket() denied in current runtime"
+}

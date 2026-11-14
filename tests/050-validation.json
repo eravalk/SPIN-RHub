@@ -1,0 +1,40 @@
+{
+  "version": "0.5.0-alpha",
+  "version_code": 11,
+  "package": "com.spinplayer.next",
+  "android_build": "passed",
+  "apk_asset_integrity": "passed",
+  "same_certificate_as_0_4_1_new": true,
+  "apk_sha256": "1a76640369589b2f927327215ff6df12d7a3ac69ec5965ecde148caf5ec3822c",
+  "ui_regressions": "passed",
+  "library_next_ui_tests": "passed",
+  "browser_native_bridge": "mocked",
+  "tested_viewports": [
+    [
+      344,
+      882
+    ],
+    [
+      720,
+      850
+    ],
+    [
+      1280,
+      800
+    ]
+  ],
+  "android_device_tested": false,
+  "live_service_preview_tested": false,
+  "visualizer_hardware_tested": false,
+  "widget_launcher_tested": false,
+  "not_implemented": [
+    "Personal account login and personal service libraries",
+    "Spotify/spotDL importer or downloader"
+  ],
+  "limitations": [
+    "Online preview requires an available direct HTTPS audio format from yt-dlp",
+    "Widget waveform samples at 2 Hz only while playback and screen are active; launcher behavior is unverified",
+    "Native notification animation is controlled by phone SystemUI",
+    "Existing folder tracks acquire new year/albumArtist tags after rescan; manual entries can be edited"
+  ]
+}

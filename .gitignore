@@ -1,0 +1,7 @@
+/build/
+/.gradle/
+/signing/
+/*.apk
+/local.properties
+*.keystore
+password.txt

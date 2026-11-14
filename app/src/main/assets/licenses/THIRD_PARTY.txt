@@ -1,0 +1,16 @@
+# Third-party software
+
+SPIN Player 0.2 is distributed under GPL-3.0-or-later because it incorporates NewPipeExtractor. Full SPIN source and third-party source archives are supplied with the application. See LICENSE.
+
+- NewPipeExtractor v0.26.5 — https://github.com/TeamNewPipe/NewPipeExtractor — GPL-3.0-or-later. Binary from https://jitpack.io/com/github/teamnewpipe/NewPipeExtractor/v0.26.5/ . Source: third-party/sources/NewPipeExtractor-sources.jar.
+- NewPipe nanojson e9d656ddb49a412a5a0a5d5ef20ca7ef09549996 — https://github.com/TeamNewPipe/nanojson — Apache-2.0 / upstream notices in source archive.
+- jsoup 1.22.2 — https://jsoup.org/ — MIT.
+- jsr305 3.0.2 — https://github.com/findbugsproject/findbugs — Apache-2.0.
+- protobuf-javalite 4.35.1 — https://github.com/protocolbuffers/protobuf — BSD-3-Clause.
+- Rhino and Rhino engine 1.8.1 — https://github.com/mozilla/rhino — MPL-2.0, individual bundled files retain their notices.
+
+All corresponding dependency source JARs are in third-party/sources. Libraries retain their embedded META-INF license notices. No source from youtubedl-android was incorporated.
+
+Lyrics lookup: https://lrclib.net/docs . Lyrics are requested only when the user selects “Find lyrics”. No API token is stored. Source content is not bundled.
+
+Example album covers are used only in the optional disabled-by-default demo collection; no example audio recordings are bundled.

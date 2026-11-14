@@ -1,0 +1,33 @@
+{
+  "version": "1.4.0.0",
+  "versionCode": 21,
+  "status": "test_build_pending_device_and_visual_validation",
+  "apk_sha256": "1ac05c5209dcdef8f85788f0b2b1b4a7680e07e8a2407b1833997810fb701415",
+  "original_signature_verified": true,
+  "apk_assets_match_source": true,
+  "passed": [
+    "app_style_DOM_and_mock_native_bridge",
+    "persisted_style_new_document_and_corrupt_value",
+    "top_settings_style_selector",
+    "no_playback_commands_on_style_switch",
+    "album_and_playlist_cover_identity",
+    "same_album_scene_reuse",
+    "laser_preview_commit_cancel_keyboard_stale_callback_guard",
+    "lyrics_queue_panel_roundtrip_and_repeated_style_switch",
+    "five_source_UI_regression",
+    "navigation_restart_and_update_actions",
+    "vinyl_animation_regression",
+    "version_bump_validation",
+    "JS_syntax",
+    "Android_compile_DEX_signing"
+  ],
+  "not_verified": [
+    "real_Android_device",
+    "visual_layout_and_animation_rendering",
+    "Fold_performance",
+    "screen_reader_on_device",
+    "new_network_service_tests"
+  ],
+  "browser_visual_check": "local_file_URL_blocked_by_browser_security_policy_no_workaround_attempted",
+  "cassette_implemented": false
+}

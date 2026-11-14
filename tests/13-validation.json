@@ -1,0 +1,22 @@
+{
+  "version": "1.3",
+  "versionCode": 18,
+  "build": true,
+  "signed_with_original_key": true,
+  "java_catalog_tests": true,
+  "dom_ui_tests_mock_bridge": true,
+  "scroll_restart_tests": true,
+  "update_metadata_tests": true,
+  "animation_tests": true,
+  "js_syntax": true,
+  "android_device_tested": false,
+  "authenticated_service_download_tested": false,
+  "spotify_public_album_metadata_probe": true,
+  "spotify_anonymous_session_probe": "blocked_by_automatic_review_not_retried",
+  "spotify_name_search_requires_user_developer_credentials": true,
+  "yandex_anonymous_probe_http": 451,
+  "yandex_formats": [
+    "mp3"
+  ],
+  "spotify_full_audio_source": "YouTube Music"
+}

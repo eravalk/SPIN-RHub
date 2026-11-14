@@ -1,0 +1,9 @@
+Object.keys(presets).forEach(key=>delete presets[key]);Object.assign(presets,VINYL_DESIGNS);
+const storedTextureSignatures=new Map();
+const oldReadVinylForm03=readVinylForm;readVinylForm=function(){return{...oldReadVinylForm03(),color2:$('#vinylColor2')?.value||'#eeeeee',color3:$('#vinylColor3')?.value||'#738bb9',seed:vinylFor(vinylEditId).seed||Math.abs(vinylEditId*73+472)}};
+vinylBackground=function(style){return `url('${renderVinylTexture(style,256)}') center / cover no-repeat`};
+const oldVinylDialog03=vinylDialog;vinylDialog=function(id){oldVinylDialog03(id);const style=vinylFor(Number(id));$('#vinylPattern').innerHTML=VINYL_PATTERNS.map(([value,name])=>`<option value="${value}" ${style.pattern===value?'selected':''}>${name}</option>`).join('');$('#vinylColor').insertAdjacentHTML('afterend',`<div class="vinyl-colors"><label>Второй цвет<input type="color" id="vinylColor2" value="${style.color2||'#eeeeee'}"></label><label>Третий цвет<input type="color" id="vinylColor3" value="${style.color3||'#738bb9'}"></label></div>`);updateVinylPreview()};
+const oldApplyVinyl03=applyVinyl;applyVinyl=function(){oldApplyVinyl03();const t=currentTrack();if(t.id<0)return;const style=vinylFor(t.id);const signature=JSON.stringify(style);if(t.native&&typeof N.saveVinylTexture==='function'&&storedTextureSignatures.get(t.id)!==signature){storedTextureSignatures.set(t.id,signature);N.saveVinylTexture(t.id,renderVinylTexture(style,384));}};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-vinylpreset]');if(!b)return;const p=presets[b.dataset.vinylpreset];if(!p)return;if($('#vinylColor2'))$('#vinylColor2').value=p.color2||'#eeeeee';if($('#vinylColor3'))$('#vinylColor3').value=p.color3||'#738bb9';updateVinylPreview()});
+document.addEventListener('input',e=>{if(['vinylColor2','vinylColor3'].includes(e.target.id))updateVinylPreview()});
+renderPlayer();

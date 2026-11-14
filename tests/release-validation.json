@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "build": true,
+  "signature_verified": true,
+  "javascript_syntax": true,
+  "visualizer_renderers": {
+    "styles": 7,
+    "densities": [
+      8,
+      32,
+      96
+    ],
+    "passed": true
+  },
+  "browser_ui_verified": false,
+  "browser_blocker": "Chromium launch denied socket operation in environment",
+  "android_device_verified": false,
+  "bluetooth_issue_reproduced": false
+}
