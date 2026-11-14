@@ -1,0 +1,49 @@
+{
+  "version": "1.4.1.0",
+  "versionCode": 22,
+  "source_commit": "cbbb7dd1eaa661dc9ce0ae072d9ae7426d062dee",
+  "browser": {
+    "status": "passed",
+    "run": "https://github.com/eravalk/SPIN-RHub/actions/runs/43635015337",
+    "viewports": [
+      "320x640",
+      "390x844",
+      "690x828",
+      "853x1024",
+      "1280x800",
+      "1024x1366"
+    ],
+    "fixture": "Synthetic library and lyrics; no user accounts or music",
+    "checks": [
+      "Visible lyrics button and panel",
+      "Queue/lyrics round trip",
+      "Style round trip without audio restart",
+      "Independent full-width shell",
+      "CD and case containment",
+      "Settings selector visibility",
+      "Hidden update buttons",
+      "No JavaScript errors or horizontal overflow"
+    ]
+  },
+  "local_regressions": {
+    "app_style": "passed",
+    "sources13": "passed",
+    "navigation_updates": "passed",
+    "animation": "passed"
+  },
+  "apk": {
+    "sha256": "34c3a3e14313a4fb9e51ba872db1159f4179541e542a59d639b7592a2c4a1a84",
+    "certificate_sha256": "2ca31960c7451a23e94f8a08762f9c45b78f2d62eadacbd50e7060df87ae14ed",
+    "assets_match_sources": true,
+    "build": "passed"
+  },
+  "device": {
+    "tested": false,
+    "pending": [
+      "Actual Fold system insets",
+      "Animation smoothness",
+      "TalkBack",
+      "Real device playback and online services"
+    ]
+  }
+}
