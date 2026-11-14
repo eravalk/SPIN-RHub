@@ -216,7 +216,11 @@
   }
   const beforeLyrics=renderPersistentLyrics;
   renderPersistentLyrics=function(){
-    if(!isGlass())return beforeLyrics();
+    if(!isGlass()){
+      beforeLyrics();
+      if(page==='settings'){body.classList.remove('lyrics-enabled','wide-lyrics');const host=$('#persistentLyrics');if(host)$('#player').append(host);}
+      return;
+    }
     ensureShell();
     body.classList.remove('wide-lyrics','queue-open','lyrics-enabled');
     if(!lyricsEnabled||currentTrack().id===-1){$('#persistentLyrics')?.remove();renderSidePanel();return;}
