@@ -29,7 +29,8 @@ let callsBefore=calls.length;click('[data-app-style="liquid-glass"]');
 assert.equal(w.SpinAppStyle.get(),'liquid-glass');assert.equal(w.localStorage.getItem('spinAppStyleV1'),'liquid-glass');
 assert.equal(run('JSON.stringify({current,position,playing,queue,theme})'),snapshot,'Style must preserve playback and palette');
 assert(!calls.slice(callsBefore).some(c=>['play','seek','command','replaceQueue'].includes(c[0])),'No audio commands on style switch');
-assert(w.document.querySelector('#cdScene'));assert(w.document.querySelector('#cdLaser'));assert(!w.document.querySelector('#tonearm'));
+assert(w.document.querySelector('#cdScene'));assert(w.document.querySelector('#cdLaser'));assert(!w.document.querySelector('#tonearm'));assert(w.document.querySelector('#glassShell'));assert(w.document.querySelector('#glassMainDock #main'));assert(w.document.querySelector('#glassPlayerDock #player'));
+click('#lgOpenPlayer');assert.equal(w.SpinAppStyle.view(),'player');click('#lgLyricsBtn');assert(w.document.querySelector('#glassPanelBody #lyricLines'));assert.equal(w.SpinAppStyle.view(),'player');click('#lgClosePlayer');assert.equal(w.SpinAppStyle.view(),'browser');
 assert.equal(w.document.querySelector('#main').firstElementChild.id,'appStyleSettings');
 assert.equal(w.document.querySelector('#cdLaser').getAttribute('aria-valuenow'),'61');
 run("tracks.find(t=>t.id===101).cover='custom-cover.png';renderPlayer()");assert.equal(w.document.querySelector('.cd-case-lid img').getAttribute('src'),'custom-cover.png');
@@ -57,7 +58,7 @@ run("page='settings';window.activePlaylist='other';renderPlayer()");assert(w.doc
 run('queue=[101,103];renderPlayer()');assert.equal(w.document.querySelector('.cd-case-title strong').textContent,'Ночная сторона');
 Object.defineProperty(w,'innerWidth',{value:1400,writable:true});w.dispatchEvent(new w.Event('resize'));
 click('[data-glass-panel="lyrics"]');assert(w.document.querySelector('#glassPanelBody #persistentLyrics'));
-click('[data-glass-panel="queue"]');assert(w.document.querySelector('#player #persistentLyrics'),'Keep lyric DOM when switching to queue');
+click('[data-glass-panel="queue"]');assert(w.document.querySelector('#lgLyricStash #persistentLyrics'),'Keep lyric DOM when switching to queue');
 click('[data-glass-panel="lyrics"]');assert(w.document.querySelector('#glassPanelBody #persistentLyrics'),'Restore lyric DOM without another search');
 click('[data-glass-panel="queue"]');assert.equal(w.document.querySelector('[data-glass-panel="queue"]').getAttribute('aria-pressed'),'true');
 run('renderMain()');assert.equal(w.document.querySelector('[data-glass-panel="queue"]').getAttribute('aria-pressed'),'true','Keep selected side tab');

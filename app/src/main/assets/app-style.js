@@ -78,38 +78,6 @@
     scene.querySelectorAll('img').forEach(img => img.addEventListener('error', () => { if(!img.src.endsWith('/app-cover.svg'))img.src='app-cover.svg'; }, {once:true}));
     return scene;
   }
-  function decoratePlayer(oldScene, oldIdentity, oldTrack) {
-    const track=currentTrack(), media=mediaFor(track), player=$('#player'), table=$('#turntable');
-    if (!player || !table) return;
-    const same=oldScene && oldIdentity===media.key;
-    const scene=same ? oldScene : sceneNode(media);
-    if(same){
-      scene.querySelector('.cd-case').setAttribute('aria-label','Обложка '+media.name);
-      scene.querySelector('.cd-case-title strong').textContent=media.name;
-      scene.querySelector('.cd-case-title small').textContent=media.artist;
-      scene.querySelectorAll('img').forEach(img=>{if(img.getAttribute('src')!==media.cover)img.src=media.cover;});
-    }
-    // Reuse the physical scene for a track change in the same album/playlist.
-    table.replaceWith(scene);
-    player.classList.add('cd-player');
-    player.querySelector('[data-styletrack]')?.remove();
-    player.querySelector('.queue-card')?.remove();
-    player.querySelector('.seek-help')?.remove();
-    player.querySelector('#needleTime04')?.remove();
-    const toggleView=document.createElement('button');toggleView.id='cdPanelToggle';toggleView.className='text-btn';toggleView.textContent='Развернуть плеер';
-    player.querySelector('.player-top')?.append(toggleView);
-    $('#waveSeek')?.setAttribute('aria-label','Позиция песни — альтернативное управление');
-    const disc=scene.querySelector('.cd-disc');
-    if(!same && oldScene && oldTrack!==track.id) { angle=0; speed=0; }
-    sceneIdentity=media.key;sceneTrack=track.id;
-    attachLaser(scene);
-    updateLaser();
-    if(!same)playTransition(scene,oldScene,!!oldScene);
-    else if(oldTrack!==track.id && motionAllowed())runMotion(scene.querySelector('.cd-laser-dot'),[{opacity:.2},{opacity:1}],{duration:260});
-    if(disc)disc.style.transform='rotate('+angle+'deg)';
-    renderSidePanel();
-    startFrame();
-  }
   function updateLaser() {
     if(!isGlass())return;
     const laser=$('#cdLaser');if(!laser)return;
@@ -160,126 +128,202 @@
       needleTrack=current;needlePending=Math.max(0,Math.min(duration(),target));needleGuardUntil=performance.now()+1500;seek(needlePending);
     };
   }
-  let rightTab=lyricsEnabled?'lyrics':'queue';
-  function renderSidePanel() {
-    let panel=$('#glassSidePanel');
-    if(!isGlass()){panel?.remove();return;}
-    if(!panel){panel=document.createElement('aside');panel.id='glassSidePanel';$('#app').append(panel);}
-    if(!panel.querySelector('.glass-panel-tabs'))panel.innerHTML='<div class="glass-panel-tabs"><button type="button" data-glass-panel="lyrics">Текст</button><button type="button" data-glass-panel="queue">Очередь</button></div><div id="glassPanelBody"></div>';
-    panel.querySelectorAll('[data-glass-panel]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.glassPanel===rightTab));
-    const host=panel.querySelector('#glassPanelBody');
-    if(rightTab==='queue'){
-      const keep=host.querySelector('#persistentLyrics');if(keep)$('#player').append(keep);
-      host.innerHTML=queueHtml04().replace(/<button class="icon-btn" id="closeQueue04"[\s\S]*?<\/button>/,'');
+  let rightTab=lyricsEnabled?'lyrics':'queue', view='browser', panelOpen=true;
+  const basePlayerClass=$('#player').className;
+  function routes(){
+    return [['library','music','Библиотека'],['online','search','Поиск'],['downloads','download','Загрузки'],['settings','settings','Настройки']].map(([id,i,title])=>`<button type="button" data-lg-route="${id}" aria-label="${title}">${icon(i)}<span>${title}</span></button>`).join('');
+  }
+  function ensureShell(){
+    let shell=$('#glassShell');if(shell)return shell;
+    shell=document.createElement('div');shell.id='glassShell';shell.dataset.view=view;
+    shell.innerHTML=`<img class="lg-backdrop" id="lgBackdrop" src="app-cover.svg" alt="" aria-hidden="true"><div class="lg-ambient" aria-hidden="true"></div><aside class="lg-rail"><button class="lg-brand" data-lg-route="library" aria-label="SPIN RHub — библиотека"><span class="lg-brand-disc"></span><b>SPIN RHub</b></button><nav aria-label="Главная навигация">${routes()}</nav></aside><section class="lg-browser"><header class="lg-header"><div><small>SPIN RHub</small><h1 id="lgPageTitle">Библиотека</h1></div><button type="button" class="lg-icon" id="lgPalette" aria-label="Сменить палитру">◐</button></header><div id="glassMainDock"></div></section><section id="glassPlayerDock"></section><aside id="glassSidePanel" class="lg-side"><div class="glass-panel-tabs" role="group" aria-label="Панель плеера"><button type="button" data-glass-panel="lyrics">Текст</button><button type="button" data-glass-panel="queue">Очередь</button><button type="button" id="lgClosePanel" aria-label="Скрыть панель">${icon('close')}</button></div><div id="glassPanelBody"></div></aside><div id="lgLyricStash" hidden></div><div class="lg-mini" id="lgMini"></div><nav class="lg-bottom" aria-label="Главная навигация">${routes()}</nav>`;
+    body.append(shell);
+    const main=$('#main'),player=$('#player');
+    shell.querySelector('#glassMainDock').append(main);
+    shell.querySelector('#glassPlayerDock').append(player);player.className='lg-player';
+    body.classList.remove('wide-lyrics','queue-open','glass-expanded','glass-wide','cover-playing');$('#sideQueue')?.remove();queueOpen=false;
+    return shell;
+  }
+  function removeShell(){
+    const shell=$('#glassShell');if(!shell)return;
+    const lyrics=$('#persistentLyrics');if(lyrics)$('#player').append(lyrics);
+    $('.workspace').append($('#main'));$('#app').insertBefore($('#player'),$('#bottomNav'));
+    $('#player').className=basePlayerClass;shell.remove();
+  }
+  function setView(next){
+    view=next;ensureShell().dataset.view=view;
+    if(view==='player')$('#glassPlayerDock').scrollTop=0;
+    updateMini();renderSidePanel();startFrame();
+  }
+  function updateNav(){
+    const active=page==='downloads'?(downloadTab==='search'?'online':'downloads'):page==='settings'?'settings':'library';
+    $$('#glassShell [data-lg-route]').forEach(b=>{b.classList.toggle('active',b.dataset.lgRoute===active);if(b.closest('nav'))b.setAttribute('aria-current',b.dataset.lgRoute===active?'page':'false');});
+    const title=$('#lgPageTitle');if(title)title.textContent=page==='downloads'&&downloadTab==='search'?'Поиск':$('#pageTitle')?.textContent||'Библиотека';
+  }
+  function updateMini(){
+    const mini=$('#lgMini');if(!mini)return;
+    const t=currentTrack();mini.hidden=t.id===-1;
+    mini.innerHTML=`<button id="lgOpenPlayer" aria-label="Открыть плеер"><img src="${esc(t.cover||'app-cover.svg')}" alt=""><span><b>${esc(t.name)}</b><small>${esc(t.artist)}</small></span></button><button id="lgMiniPlay" class="lg-icon" aria-label="${playing?'Пауза':'Воспроизведение'}">${icon(playing?'pause':'play')}</button><button id="lgMiniNext" class="lg-icon" aria-label="Следующая песня">${icon('next')}</button>`;
+  }
+  function updatePlayerControls(){
+    const t=currentTrack(),name=$('#lgTrackName'),artist=$('#lgTrackArtist');
+    if(name)name.textContent=t.name;if(artist)artist.textContent=t.artist;
+    const play=$('#play');if(play){play.innerHTML=icon(playing?'pause':'play');play.setAttribute('aria-label',playing?'Пауза':'Воспроизведение');}
+    const fav=$('#lgFav');if(fav){fav.dataset.fav=t.id;fav.classList.toggle('liked',favorites.has(t.id));fav.disabled=t.id===-1;}
+    const menu=$('#lgTrackMenu');if(menu){menu.dataset.menu=t.id;menu.disabled=t.id===-1;}
+    const repeatButton=$('#repeat');if(repeatButton){repeatButton.classList.toggle('on',Number(repeat)>0);repeatButton.setAttribute('aria-label',['Повтор выключен','Повтор очереди','Повтор трека'][Number(repeat)]);repeatButton.innerHTML=icon('repeat')+(Number(repeat)===2?'<small>1</small>':'');}
+    $('#shuffle')?.classList.toggle('on',shuffle);
+    if($('#totalTime'))$('#totalTime').textContent=fmt(t.duration);
+    updateLaser();updateMini();
+  }
+  function renderGlassPlayer(){
+    ensureShell();
+    const t=currentTrack(),media=mediaFor(t),player=$('#player');
+    let oldScene=$('#cdScene'),oldIdentity=sceneIdentity,oldTrack=sceneTrack;
+    if(!player.querySelector('.lg-stage')){
+      player.innerHTML=`<header class="lg-player-top"><button class="lg-icon" id="lgClosePlayer" aria-label="Вернуться к библиотеке">${icon('back')}</button><span>СЕЙЧАС ИГРАЕТ</span><button class="lg-icon" id="lgTrackMenu" data-menu="${t.id}" aria-label="Меню песни">${icon('more')}</button></header><div class="lg-stage" id="lgStage"></div><div class="lg-now"><div><h2 id="lgTrackName"></h2><p id="lgTrackArtist"></p></div><button class="lg-icon" id="lgFav" data-fav="${t.id}" aria-label="В избранное">${icon('heart')}</button></div><div class="lg-time"><span id="elapsed">${fmt(position)}</span><span id="totalTime">${fmt(t.duration)}</span></div><div class="lg-transport"><button class="lg-icon" id="shuffle" aria-label="Случайный порядок">${icon('shuffle')}</button><button class="lg-icon" id="prev" aria-label="Предыдущая песня">${icon('prev')}</button><button class="lg-play" id="play" aria-label="Воспроизведение">${icon('play')}</button><button class="lg-icon" id="next" aria-label="Следующая песня">${icon('next')}</button><button class="lg-icon" id="repeat" aria-label="Повтор выключен">${icon('repeat')}</button></div><div class="lg-player-tools"><button class="lg-pill" id="lgLyricsBtn">${icon('music')} Текст</button><button class="lg-pill" id="lgQueueBtn">${icon('queue')} Очередь</button><button class="lg-pill" data-timer>Таймер</button></div>`;
+      oldScene=null;
     }
-    else {
+    const same=oldScene&&oldIdentity===media.key;
+    const scene=same?oldScene:sceneNode(media);
+    scene.querySelector('.cd-case').setAttribute('aria-label','Обложка '+media.name);
+    scene.querySelector('.cd-case-title strong').textContent=media.name;
+    scene.querySelector('.cd-case-title small').textContent=media.artist;
+    scene.querySelectorAll('img').forEach(img=>{if(img.getAttribute('src')!==media.cover)img.src=media.cover;});
+    if(!same){$('#lgStage').replaceChildren(scene);angle=0;speed=0;attachLaser(scene);playTransition(scene,oldScene,!!oldScene);}
+    sceneIdentity=media.key;sceneTrack=t.id;
+    const backdrop=$('#lgBackdrop');if(backdrop.getAttribute('src')!==media.cover)backdrop.src=media.cover;
+    scene.querySelector('.cd-disc').style.transform='rotate('+angle+'deg)';
+    updatePlayerControls();renderSidePanel();startFrame();
+  }
+  function renderSidePanel(){
+    if(!isGlass())return;
+    const shell=ensureShell(),panel=$('#glassSidePanel'),host=$('#glassPanelBody');
+    const target=innerWidth>=1100?shell:$('#glassPlayerDock');if(panel.parentNode!==target)target.append(panel);
+    shell.dataset.panel=panelOpen?rightTab:'closed';
+    panel.hidden=!panelOpen;
+    panel.querySelectorAll('[data-glass-panel]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.glassPanel===rightTab));
+    if(rightTab==='queue'){
+      const keep=host.querySelector('#persistentLyrics');if(keep)$('#lgLyricStash').append(keep);
+      host.innerHTML=queueHtml04().replace(/<button class="icon-btn" id="closeQueue04"[\s\S]*?<\/button>/,'');
+    }else{
       const lyrics=$('#persistentLyrics');
       if(lyrics){if(lyrics.parentNode!==host)host.replaceChildren(lyrics);}
-      else host.innerHTML='<div class="empty"><p>Текст текущей песни</p><button class="secondary" id="glassOpenLyrics">Показать текст</button></div>';
+      else host.innerHTML='<div class="lg-empty"><p>Текст пока не найден</p><button class="lg-pill" id="glassOpenLyrics">Найти или добавить текст</button></div>';
     }
-    const wide=innerWidth>=1100 && !body.classList.contains('force-cover');
-    body.classList.toggle('glass-wide',wide);
-    const tools=$('#player .player-tools');if(tools)tools.classList.toggle('glass-tools-wide',wide);
+    $('#lgLyricsBtn')?.setAttribute('aria-pressed',panelOpen&&rightTab==='lyrics');
+    $('#lgQueueBtn')?.setAttribute('aria-pressed',panelOpen&&rightTab==='queue');
   }
   const beforeLyrics=renderPersistentLyrics;
   renderPersistentLyrics=function(){
-    beforeLyrics();
-    if(isGlass()){
-      body.classList.remove('wide-lyrics','queue-open');$('#sideQueue')?.remove();
-      const lyrics=$('#persistentLyrics');
-      if(lyrics && lyrics.parentNode!==$('#player'))$('#player').append(lyrics);
-      renderSidePanel();
-    }
+    if(!isGlass())return beforeLyrics();
+    ensureShell();
+    body.classList.remove('wide-lyrics','queue-open','lyrics-enabled');
+    if(!lyricsEnabled||currentTrack().id===-1){$('#persistentLyrics')?.remove();renderSidePanel();return;}
+    if(lyricLoadedId!==current)loadLyricTrack(current);
+    let host=$('#persistentLyrics');
+    if(!host){host=document.createElement('section');host.id='persistentLyrics';host.className='persistent-lyrics lg-lyrics';$('#lgLyricStash').append(host);}
+    host.innerHTML=lyricHtml();
+    $('#lyricLines').addEventListener('wheel',()=>{lyricManualUntil=Date.now()+10000;},{passive:true});
+    $('#lyricLines').addEventListener('touchstart',()=>{lyricManualUntil=Date.now()+10000;},{passive:true});
+    lyricActive=-2;updateLyrics();renderSidePanel();
   };
-  function settingsSection() {
-    const el=document.createElement('section');el.id='appStyleSettings';el.className='settings-card app-style-settings';
-    el.setAttribute('aria-labelledby','appStyleHeading');
-    el.innerHTML='<h2 id="appStyleHeading">Стиль приложения</h2><p>Выбери оформление всего плеера. Палитра настраивается отдельно.</p><div class="app-style-options" role="group" aria-label="Стиль приложения">'+
-      [['vinyl','Винил','Пластинка и игла'],['liquid-glass','Liquid Glass','CD, коробка и лазер'],['cassette','Кассета','В разработке']].map(([id,name,detail])=>`<button type="button" class="app-style-choice ${style===id?'selected':''}" data-app-style="${id}" aria-pressed="${style===id}" ${id==='cassette'?'disabled':''}><span class="app-style-icon style-icon-${id}" aria-hidden="true"></span><b>${name}</b><small>${detail}</small></button>`).join('')+'</div>';
+  const beforeOpenLyrics=openLyrics,beforeCloseLyrics=closeLyrics;
+  openLyrics=function(id){
+    if(!isGlass())return beforeOpenLyrics(id);
+    if(id!==current||id===-1)return toast('Сначала включи песню');
+    rightTab='lyrics';panelOpen=true;lyricsEnabled=true;safeSave('spinLyricsVisible','true');
+    setView('player');renderPersistentLyrics();
+    requestAnimationFrame(()=>{if(innerWidth<1100)$('#glassSidePanel')?.scrollIntoView({block:'nearest',behavior:motionAllowed()?'smooth':'auto'});});
+  };
+  closeLyrics=function(){
+    if(!isGlass())return beforeCloseLyrics();
+    lyricsEnabled=false;safeSave('spinLyricsVisible','false');$('#persistentLyrics')?.remove();panelOpen=false;renderSidePanel();
+  };
+  function settingsSection(){
+    const el=document.createElement('section');el.id='appStyleSettings';el.className='settings-card app-style-settings';el.setAttribute('aria-labelledby','appStyleHeading');
+    el.innerHTML='<h2 id="appStyleHeading">Стиль приложения</h2><p>Оформление всего плеера. Палитра настраивается отдельно.</p><div class="app-style-options" role="group" aria-label="Стиль приложения">'+[['vinyl','Винил','Пластинка и игла'],['liquid-glass','Liquid Glass','CD, коробка и лазер'],['cassette','Кассета','В разработке']].map(([id,name,detail])=>`<button type="button" class="app-style-choice ${style===id?'selected':''}" data-app-style="${id}" aria-pressed="${style===id}" ${id==='cassette'?'disabled':''}><span class="app-style-icon style-icon-${id}" aria-hidden="true"></span><b>${name}</b><small>${detail}</small></button>`).join('')+'</div>';
     return el;
   }
-  const beforeOpenLyrics=openLyrics;openLyrics=function(id){if(isGlass())rightTab='lyrics';return beforeOpenLyrics(id);};
-  const beforeQueueDraw=redrawQueue04;redrawQueue04=function(){beforeQueueDraw();if(isGlass())renderSidePanel();};
   const beforeMain=renderMain;
-  renderMain=function(){beforeMain();if(page==='settings'){$('#appStyleSettings')?.remove();$('#main').prepend(settingsSection());}if(isGlass())renderSidePanel();};
+  renderMain=function(){
+    if(isGlass())ensureShell();
+    beforeMain();
+    if(page==='settings'){$('#appStyleSettings')?.remove();$('#main').prepend(settingsSection());}
+    if(isGlass()){updateNav();updateMini();renderSidePanel();}
+  };
   const beforePlayer=renderPlayer;
   renderPlayer=function(){
-    const oldScene=$('#cdScene'), oldIdentity=sceneIdentity, oldTrack=sceneTrack;
-    cancelDrag();
-    if(activeSwap)activeSwap.finish();
-    if(isGlass()){
-      // Use the shared renderer below the vinyl-only swap adapter.
-      releasePlayer();transitionTrack=current;
-      decoratePlayer(oldScene,oldIdentity,oldTrack);
-    }else{
-      cancelMotions();sceneIdentity='';sceneTrack=null;
-      beforePlayer();$('#player').classList.remove('cd-player');
-    }
+    cancelDrag();if(activeSwap)activeSwap.finish();
+    if(isGlass()){renderGlassPlayer();transitionTrack=current;}
+    else{cancelMotions();sceneIdentity='';sceneTrack=null;beforePlayer();}
   };
-  const beforeProgress=updateProgress;updateProgress=function(){beforeProgress();updateLaser();};
-  const beforeSync=syncPlaying;syncPlaying=function(){beforeSync();if(isGlass())startFrame();};
+  const beforeProgress=updateProgress;
+  updateProgress=function(){beforeProgress();updateLaser();};
+  const beforeSync=syncPlaying;
+  syncPlaying=function(){
+    if(!isGlass())return beforeSync();
+    updatePlayerControls();startFrame();
+  };
+  const beforeQueueDraw=redrawQueue04;
+  redrawQueue04=function(){beforeQueueDraw();if(isGlass())renderSidePanel();};
   const beforePlayTrack=playTrack;
-  playTrack=function(id){
-    playlistContext=page==='playlist' ? window.activePlaylist || '' : '';
-    safeSave('spinStylePlaylistContext',playlistContext);return beforePlayTrack(id);
+  playTrack=function(id){playlistContext=page==='playlist'?window.activePlaylist||'':'';safeSave('spinStylePlaylistContext',playlistContext);return beforePlayTrack(id);};
+  const beforeBack=window.spinBack;
+  window.spinBack=function(){
+    if(isGlass()&&!$('#dialog').open&&view==='player'){setView('browser');return;}
+    return beforeBack();
   };
-  function frame(now) {
+  function frame(now){
     animationFrame=0;
-    if(!isGlass() || document.hidden){lastFrame=0;return;}
-    const scene=$('#cdScene'), player=$('#player');
-    if(!scene || !player || !player.getClientRects().length){lastFrame=0;return;}
+    if(!isGlass()||document.hidden){lastFrame=0;return;}
+    const scene=$('#cdScene'),player=$('#player');if(!scene||!player.getClientRects().length){lastFrame=0;return;}
     const dt=Math.min(.05,Math.max(0,(now-(lastFrame||now))/1000));lastFrame=now;
-    const motion=motionAllowed(), target=motion && playing ? (drag?55:960) : 0;
+    const motion=motionAllowed(),target=motion&&playing?(drag?55:960):0;
     speed+=(target-speed)*Math.min(1,dt*(playing?3:4));if(speed<.05)speed=0;
     if(motion)angle=(angle+speed*dt)%360;
     scene.querySelector('.cd-disc').style.transform='rotate('+angle+'deg)';
-    scene.classList.toggle('cd-active',playing && motion);scene.classList.toggle('cd-paused',!playing);
-    if(!motion){speed=0;cancelMotions();scene.querySelectorAll('.cd-outgoing').forEach(n=>n.remove());}
-    if(motion && (playing || speed>.05 || drag))animationFrame=requestAnimationFrame(frame);
+    scene.classList.toggle('cd-active',playing&&motion);scene.classList.toggle('cd-paused',!playing);
+    if(!motion){speed=0;cancelMotions();}
+    if(motion&&(playing||speed>.05||drag))animationFrame=requestAnimationFrame(frame);
   }
-  function startFrame(){if(!animationFrame && isGlass() && !document.hidden)animationFrame=requestAnimationFrame(frame);}
-  function applyStyle(next) {
+  function startFrame(){if(!animationFrame&&isGlass()&&!document.hidden)animationFrame=requestAnimationFrame(frame);}
+  function applyStyle(next){
     if(!available.has(next))return;
-    window.spinPersistNavigation?.();
-    const oldMain=$('#main')?.scrollTop||0,oldWorkspace=$('.workspace')?.scrollTop||0;
-    cancelDrag();cancelMotions();
-    if(animationFrame)cancelAnimationFrame(animationFrame);animationFrame=0;lastFrame=0;
+    window.spinPersistNavigation?.();const oldScroll=$('#main').scrollTop;
+    cancelDrag();cancelMotions();if(animationFrame)cancelAnimationFrame(animationFrame);animationFrame=0;lastFrame=0;
+    if(activeSwap)activeSwap.finish();
     style=next;body.dataset.appStyle=style;safeSave(KEY,style);
-    body.classList.remove('wide-lyrics','queue-open','glass-expanded','glass-wide');$('#sideQueue')?.remove();queueOpen=false;
-    if(!isGlass())$('#glassSidePanel')?.remove();
-    renderMain();renderPlayer();
-    if($('#main'))$('#main').scrollTop=oldMain;if($('.workspace'))$('.workspace').scrollTop=oldWorkspace;
-    if(page==='settings')document.querySelector('[data-app-style="'+style+'"]')?.focus({preventScroll:true});
+    body.classList.remove('wide-lyrics','queue-open','glass-expanded','glass-wide','cover-playing');$('#sideQueue')?.remove();queueOpen=false;
+    if(isGlass())ensureShell();else removeShell();
+    renderMain();renderPlayer();$('#main').scrollTop=oldScroll;
+    if(page==='settings')$('[data-app-style="'+style+'"]')?.focus({preventScroll:true});
     startFrame();
   }
   document.addEventListener('click',e=>{
     const b=e.target.closest('button');if(!b)return;
     if(b.dataset.appStyle){e.preventDefault();e.stopImmediatePropagation();applyStyle(b.dataset.appStyle);return;}
     if(!isGlass())return;
-    if(b.dataset.glassPanel){
-      e.preventDefault();e.stopImmediatePropagation();rightTab=b.dataset.glassPanel;
-      if(rightTab==='lyrics' && !lyricsEnabled && currentTrack().id!==-1){lyricsEnabled=true;safeSave('spinLyricsVisible','true');renderPersistentLyrics();}
-      else renderSidePanel();return;
+    const consume=()=>{e.preventDefault();e.stopImmediatePropagation();};
+    if(b.dataset.lgRoute){
+      consume();view='browser';ensureShell().dataset.view=view;
+      if(b.dataset.lgRoute==='online'){downloadTab='search';go('downloads');}
+      else if(b.dataset.lgRoute==='downloads'){downloadTab='active';go('downloads');}
+      else go(b.dataset.lgRoute);return;
     }
-    if(b.id==='glassOpenLyrics'){e.preventDefault();e.stopImmediatePropagation();openLyrics(current);return;}
-    if(b.id==='queueBtn'){
-      e.preventDefault();e.stopImmediatePropagation();
-      if(innerWidth>=1100 && !body.classList.contains('force-cover')){rightTab='queue';renderSidePanel();}
-      else dialog('Очередь',queueHtml04());return;
-    }
-    if(b.id==='cdPanelToggle'){
-      e.preventDefault();e.stopImmediatePropagation();body.classList.toggle('glass-expanded');
-      b.textContent=body.classList.contains('glass-expanded')?'Показать библиотеку':'Развернуть плеер';startFrame();return;
-    }
-    if(b.id==='openPlayer')requestAnimationFrame(startFrame);
-    if(b.id==='closePlayer'){body.classList.remove('glass-expanded');requestAnimationFrame(startFrame);}
+    if(b.id==='lgPalette'){consume();setTheme(['dark','light','black'][(['dark','light','black'].indexOf(theme)+1)%3]);return;}
+    if(b.id==='lgOpenPlayer'){consume();setView('player');return;}
+    if(b.id==='lgClosePlayer'){consume();setView('browser');return;}
+    if(b.id==='lgMiniPlay'){consume();toggle();return;}
+    if(b.id==='lgMiniNext'){consume();next();return;}
+    if(b.id==='lgLyricsBtn'||b.id==='glassOpenLyrics'){consume();openLyrics(current);return;}
+    if(b.id==='lgQueueBtn'){consume();rightTab='queue';panelOpen=true;setView('player');renderSidePanel();if(innerWidth<1100)$('#glassSidePanel').scrollIntoView({block:'nearest',behavior:motionAllowed()?'smooth':'auto'});return;}
+    if(b.id==='lgClosePanel'){consume();panelOpen=false;renderSidePanel();return;}
+    if(b.dataset.glassPanel){consume();if(b.dataset.glassPanel==='lyrics')openLyrics(current);else{rightTab='queue';panelOpen=true;renderSidePanel();}return;}
   },true);
-  document.addEventListener('visibilitychange',()=>{
-    if(document.hidden){cancelDrag();cancelMotions();if(animationFrame)cancelAnimationFrame(animationFrame);animationFrame=0;lastFrame=0;}
-    else startFrame();
-  });
+  document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelDrag();cancelMotions();if(animationFrame)cancelAnimationFrame(animationFrame);animationFrame=0;lastFrame=0;}else startFrame();});
   window.addEventListener('resize',()=>{if(isGlass()){cancelDrag();renderSidePanel();startFrame();}});
   if(typeof ResizeObserver==='function')new ResizeObserver(startFrame).observe($('#player'));
-  window.SpinAppStyle={get:()=>style,set:applyStyle,mediaFor,stop:()=>{cancelDrag();cancelMotions();if(animationFrame)cancelAnimationFrame(animationFrame);animationFrame=0;}};
-  body.dataset.appStyle=style;renderMain();renderPlayer();
+  window.SpinAppStyle={get:()=>style,set:applyStyle,mediaFor,view:()=>view,showPlayer:()=>setView('player'),stop:()=>{cancelDrag();cancelMotions();if(animationFrame)cancelAnimationFrame(animationFrame);animationFrame=0;}};
+  body.dataset.appStyle=style;if(isGlass())ensureShell();renderMain();renderPlayer();
 })();
