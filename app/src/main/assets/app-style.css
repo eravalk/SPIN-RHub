@@ -331,3 +331,26 @@ body[data-app-style=liquid-glass][data-theme=light] dialog{background:rgba(237,2
 #bottomNav [data-vinyl-action=create] svg{
   padding:2px;border:1px solid var(--line);border-radius:6px;
 }
+
+#lgSeekbar{display:none;min-width:0;flex:1;width:auto;accent-color:var(--accent);touch-action:pan-y}
+body.show-seekbar #lgSeekbar{display:block;margin:0 .75rem}
+.app-style-choice b{overflow-wrap:anywhere}
+
+.spin-palette-layout{display:grid;gap:1rem}
+.spin-palette-controls,.spin-saved-palettes,.spin-palette-save{display:grid;gap:.7rem;min-width:0}
+.spin-preset-row{display:flex;flex-wrap:wrap;gap:.45rem}
+.spin-palette-hex{width:7rem;min-width:0}
+.spin-palette-preview{grid-row:1;color:var(--preview-ink);background:var(--preview-bg);border-radius:1rem;padding:1rem}
+.spin-preview-surface{margin-top:.6rem;border:1px solid color-mix(in srgb,var(--preview-accent) 40%,transparent);border-radius:.9rem;padding:.85rem;background:color-mix(in srgb,var(--preview-accent) 13%,transparent)}
+.spin-preview-cd .spin-preview-surface{background:color-mix(in srgb,var(--preview-bg) var(--preview-glass),color-mix(in srgb,var(--preview-accent) 24%,transparent))}
+.spin-preview-play{display:grid;place-items:center;width:2.3rem;height:2.3rem;background:var(--preview-accent);color:var(--preview-onaccent);border-radius:50%;margin:.65rem auto}
+.spin-preview-tab{border-block-start:1px solid color-mix(in srgb,var(--preview-accent) 45%,transparent);padding:.5rem .1rem 0;font-size:.85rem}
+.spin-preview-media{margin:.8rem auto;width:3rem;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,var(--preview-accent) 23%,#161720 25% 30%,#2e303a 31% 33%,#161720 34% 45%,#2e303a 46% 48%,#161720 49% 70%,#343644 71%)}
+.spin-preview-cd .spin-preview-media{background:conic-gradient(#e5ebff,#a0d9e0,#d7bafa,#edebd1,#e5ebff);mask-image:radial-gradient(circle,transparent 10%,black 12%)}
+@media(min-width:650px){.spin-palette-layout{grid-template-columns:minmax(0,1fr) minmax(0,.72fr)}.spin-palette-preview{grid-row:auto;align-self:start}}
+@media(prefers-reduced-motion:no-preference){
+ body:not(.motion-off) #glassShell [data-lg-route],body:not(.motion-off) #glassShell .lg-player-tools button{transition:background .22s,color .22s,scale .18s}
+ body:not(.motion-off) #glassShell button:active{scale:.96}
+ body:not(.motion-off) #glassShell .lg-side:not([hidden]){animation:spin-panel-appear .25s ease-out}
+ @keyframes spin-panel-appear{from{opacity:0;transform:translateY(.6rem)}to{opacity:1;transform:none}}
+}
