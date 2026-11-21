@@ -14,9 +14,9 @@ function launch() {
   localStorage:{getItem:key=>storage.get(key)||null, setItem:(key,value)=>storage.set(key,value)},
   document:{scrollingElement:root, querySelector:()=>null, querySelectorAll:()=>[],
    getElementById:id=>groups.get(id), addEventListener:(name,fn)=>events[name]=fn},
-  N:{checkAppUpdate:()=>calls.push(['check']),downloadAppUpdate:()=>calls.push(['download']),installAppUpdate:()=>calls.push(['install'])},
+  N:{checkAppUpdate:()=>calls.push(['check']),downloadAppUpdate:()=>calls.push(['download']),installAppUpdate:()=>calls.push(['install']),cancelAppUpdate:()=>calls.push(['cancel']),openAppRepository:()=>calls.push(['repository'])},
   renderMain(){root.scrollTop=0;groups.clear();groups.set('main',{scrollTop:0,scrollHeight:5000,clientHeight:800,insertAdjacentHTML(){
-   for(const id of ['checkUpdate','downloadUpdate','installUpdate','updateStatus','updateProgress','updateNotes'])groups.set(id,{removeAttribute(){}});
+   for(const id of ['checkUpdate','downloadUpdate','cancelUpdate','appRepository','installUpdate','updateStatus','updateProgress','updateNotes'])groups.set(id,{removeAttribute(){}});
   }});},
   requestAnimationFrame:fn=>{const id=nextFrame++;frames.set(id,fn);return id;},
   cancelAnimationFrame:id=>frames.delete(id),setTimeout:()=>1
@@ -37,7 +37,23 @@ assert.equal(app.calls.filter(x=>x[0]==='download').length,0,'Never download on 
 app.click('downloadUpdate');app.click('downloadUpdate');assert.equal(app.calls.filter(x=>x[0]==='download').length,1);
 app.context.window.spinAppDownload({status:'downloading',version:'1.2.1.0',bytes:25,size:100});
 assert.equal(app.groups.get('updateProgress').value,25);assert.equal(app.groups.get('downloadUpdate').disabled,true);
+assert.equal(app.groups.get('cancelUpdate').hidden,false);
+app.click('cancelUpdate');app.click('cancelUpdate');
+assert.equal(app.calls.filter(x=>x[0]==='cancel').length,1);
 app.context.window.spinAppDownload({status:'ready',version:'1.2.1.0'});
+assert.equal(app.groups.get('installUpdate').hidden,true,'Do not offer install during cancellation');
+app.context.window.spinAppDownloadCancelled(true);
+assert.equal(app.groups.get('updateStatus').textContent,'Скачивание отменено');
+assert.equal(app.groups.get('cancelUpdate').hidden,true);
+assert.equal(app.groups.get('updateProgress').hidden,true);
+assert.equal(app.groups.get('downloadUpdate').disabled,false);
+app.click('appRepository');assert.equal(app.calls.at(-1)[0],'repository');
+app.click('downloadUpdate');assert.equal(app.calls.filter(x=>x[0]==='download').length,2);
+app.context.window.spinAppDownload({status:'downloading',version:'1.2.1.0',bytes:5,size:100,paused:true});
+app.click('cancelUpdate');app.context.window.spinAppDownloadCancelled(false);
+assert.equal(app.groups.get('cancelUpdate').disabled,false,'A failed cancel remains retryable');
+app.context.window.spinAppDownload({status:'ready',version:'1.2.1.0'});
+assert.equal(app.groups.get('cancelUpdate').hidden,true);
 assert.equal(app.groups.get('installUpdate').hidden,false);app.click('installUpdate');
 assert.equal(app.calls.at(-1)[0],'install');
 app.go('library','tracks');assert.equal(app.root.scrollTop,810);

@@ -53,6 +53,16 @@ public class MainActivity extends Activity {
     } catch (Exception e) { send("spinAppDownload", updateFailure("Не удалось начать загрузку. Проверь подключение и попробуй снова.")); }
    });
   }
+  @JavascriptInterface public void cancelAppUpdate() {
+   updateWorker.execute(() -> {
+    try {
+     AppUpdateDownload.cancel(MainActivity.this);
+     send("spinAppDownloadCancelled", true);
+    } catch (Exception e) {
+     send("spinAppDownloadCancelled", false);
+    }
+   });
+  }
   @JavascriptInterface public void installAppUpdate() {
    updateWorker.execute(() -> {
     try {
@@ -91,9 +101,13 @@ public class MainActivity extends Activity {
     send("spinUpdateResult", result);
    }, "release-check").start();
   }
-  @JavascriptInterface public void openAppRelease() {
+  @JavascriptInterface public void openAppRelease() { openUpdatePage(ReleaseUpdates.PAGE); }
+  @JavascriptInterface public void openAppRepository() { openUpdatePage(ReleaseUpdates.REPOSITORY_PAGE); }
+
+  private void openUpdatePage(String url) {
    main.post(() -> {
-    try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(ReleaseUpdates.PAGE))); }
+    if (!alive) return;
+    try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
     catch (ActivityNotFoundException e) { send("spinToast", JSONObject.quote("Не удалось открыть браузер")); }
    });
   }

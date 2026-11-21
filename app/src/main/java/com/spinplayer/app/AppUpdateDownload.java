@@ -64,6 +64,12 @@ final class AppUpdateDownload {
         }
         return state(context);
     }
+    static synchronized void cancel(Context context) throws IOException {
+        SharedPreferences update = prefs(context);
+        long id = update.getLong("id", -1);
+        if (id >= 0) manager(context).remove(id);
+        if (!update.edit().clear().commit()) throw new IOException("Cannot clear update state");
+    }
     static synchronized JSONObject state(Context context) throws Exception {
         long id = prefs(context).getLong("id", -1);
         if (id < 0) return new JSONObject().put("status", "idle");

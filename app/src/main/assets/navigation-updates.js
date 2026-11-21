@@ -102,7 +102,7 @@
     if (page === 'library' && category === 'albums') restore();
   });
   let status = 'idle', availableVersion = '', notes = '', manual = false, starting = false;
-  let download = {status: 'idle'};
+  let download = {status: 'idle'}, cancelling = false, cancelled = false;
   const labels = {
     idle: '', checking: 'Проверяем…', current: 'Установлена актуальная версия',
     missing: 'Релиз с APK пока недоступен', error: 'Не удалось связаться с GitHub'
@@ -118,14 +118,19 @@
       text = (download.paused ? 'Ожидание сети · ' : 'Скачивание · ') + (percent === null ? '' : percent + '%');
     }
     if (ready) text = 'Версия ' + download.version + ' скачана. Можно установить обновление.';
+    if (cancelled && download.status === 'idle') text = 'Скачивание отменено';
     if (starting) text = 'Подготавливаем скачивание…';
+    if (cancelling) text = 'Отменяем скачивание…';
     message.textContent = text || '';
-    document.getElementById('checkUpdate').disabled = status === 'checking' || starting || active;
+    document.getElementById('checkUpdate').disabled = status === 'checking' || starting || active || cancelling;
     const button = document.getElementById('downloadUpdate');
     button.hidden = !(status === 'available' || download.status === 'failed') || ready;
-    button.disabled = starting || active;
+    button.disabled = starting || active || cancelling;
     button.textContent = download.status === 'failed' ? 'Повторить скачивание' : 'Скачать';
-    document.getElementById('installUpdate').hidden = !ready;
+    const cancel = document.getElementById('cancelUpdate');
+    cancel.hidden = !active;
+    cancel.disabled = cancelling;
+    document.getElementById('installUpdate').hidden = !ready || cancelling;
     const progress = document.getElementById('updateProgress');
     progress.hidden = !active;
     if (download.size > 0) progress.value = Math.min(100, download.bytes * 100 / download.size);
@@ -137,7 +142,7 @@
     if (page !== 'settings' || document.getElementById('checkUpdate')) return;
     const group = [...document.querySelectorAll('#main details')].find(el => detailKey(el) === 'О приложении');
     const host = group?.lastElementChild || document.getElementById('main');
-    host.insertAdjacentHTML('beforeend', '<section class="settings-card"><h3>Обновления</h3><button class="secondary" id="checkUpdate">Проверить обновления</button> <button class="primary" id="downloadUpdate" hidden>Скачать</button> <button class="primary" id="installUpdate" hidden>Установить</button><p role="status" id="updateStatus"></p><progress id="updateProgress" max="100" hidden aria-label="Скачивание обновления"></progress><p id="updateNotes" style="white-space:pre-wrap" hidden></p></section>');
+    host.insertAdjacentHTML('beforeend', '<section class="settings-card"><h3>Обновления</h3><button class="secondary" id="checkUpdate">Проверить обновления</button> <button class="primary" id="downloadUpdate" hidden>Скачать</button> <button class="secondary" id="cancelUpdate" hidden>Отменить скачивание</button> <button class="primary" id="installUpdate" hidden>Установить</button> <button class="secondary" id="appRepository">Репозиторий GitHub</button><p role="status" id="updateStatus"></p><progress id="updateProgress" max="100" hidden aria-label="Скачивание обновления"></progress><p id="updateNotes" style="white-space:pre-wrap" hidden></p></section>');
     updateControls();
   }
   const render = renderMain;
@@ -151,6 +156,7 @@
   function check(byUser) {
     manual ||= byUser;
     if (status === 'checking') return;
+    cancelled = false;
     status = 'checking';
     updateControls();
     N.checkAppUpdate();
@@ -165,6 +171,7 @@
     manual = false;
   };
   window.spinAppDownload = result => {
+    if (cancelling) return;
     if (starting && result.status === 'idle') return;
     if (download.status === 'failed' && result.status === 'idle') return;
     const becameReady = result.status === 'ready' && download.status !== 'ready';
@@ -173,14 +180,31 @@
     updateControls();
     if (becameReady) toast('Обновление скачано · Настройки → О приложении → Установить');
   };
+  window.spinAppDownloadCancelled = ok => {
+    if (!cancelling) return;
+    cancelling = false;
+    if (ok) {
+      cancelled = true;
+      download = {status: 'idle'};
+    } else {
+      toast('Не удалось отменить скачивание. Попробуй ещё раз.');
+    }
+    updateControls();
+  };
   document.addEventListener('click', event => {
     const id = event.target.closest('button')?.id;
-    if (id === 'checkUpdate') check(true);
-    if (id === 'downloadUpdate' && !starting && download.status !== 'downloading' && download.status !== 'ready'
-        && (status === 'available' || download.status === 'failed')) {
-      starting = true; updateControls(); N.downloadAppUpdate();
+    if (id === 'checkUpdate' && !cancelling) check(true);
+    if (id === 'appRepository') N.openAppRepository();
+    if (id === 'cancelUpdate' && download.status === 'downloading' && !cancelling) {
+      cancelling = true;
+      updateControls();
+      N.cancelAppUpdate();
     }
-    if (id === 'installUpdate' && download.status === 'ready') N.installAppUpdate();
+    if (id === 'downloadUpdate' && !starting && !cancelling && download.status !== 'downloading' && download.status !== 'ready'
+        && (status === 'available' || download.status === 'failed')) {
+      cancelled = false; starting = true; updateControls(); N.downloadAppUpdate();
+    }
+    if (id === 'installUpdate' && download.status === 'ready' && !cancelling) N.installAppUpdate();
   });
   addControls();
   restore();

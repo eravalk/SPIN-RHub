@@ -12,7 +12,8 @@ import org.json.JSONObject;
 
 final class ReleaseUpdates {
     static final String REPO = "eravalk/SPIN-RHub";
-    static final String PAGE = "https://github.com/" + REPO + "/releases/latest";
+    static final String REPOSITORY_PAGE = "https://github.com/" + REPO;
+    static final String PAGE = REPOSITORY_PAGE + "/releases/latest";
 
     // Only old two-component releases use this translation. Four-component numbers are literal.
     static String canonicalInstalled(String installed) {
