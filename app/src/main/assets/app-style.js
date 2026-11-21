@@ -137,7 +137,7 @@
   function ensureShell(){
     let shell=$('#glassShell');if(shell)return shell;
     shell=document.createElement('div');shell.id='glassShell';shell.dataset.view=view;
-    shell.innerHTML=`<img class="lg-backdrop" id="lgBackdrop" src="app-cover.svg" alt="" aria-hidden="true"><div class="lg-ambient" aria-hidden="true"></div><section class="lg-browser"><header class="lg-header"><div><small>SPIN RHub</small><h1 id="lgPageTitle">Библиотека</h1></div><button type="button" class="lg-icon" id="lgPalette" aria-label="Сменить палитру">◐</button></header><div id="glassMainDock"></div></section><section id="glassPlayerDock"></section><aside id="glassSidePanel" class="lg-side"><div class="glass-panel-tabs" role="group" aria-label="Панель плеера"><button type="button" data-glass-panel="lyrics">Текст</button><button type="button" data-glass-panel="queue">Очередь</button><button type="button" id="lgClosePanel" aria-label="Скрыть панель">${icon('close')}</button></div><div id="glassPanelBody"></div></aside><div id="lgLyricStash" hidden></div><div class="lg-mini" id="lgMini"></div><nav class="lg-bottom" aria-label="Главная навигация"><i class="lg-indicator" aria-hidden="true"></i>${routes()}</nav>`;
+    shell.innerHTML=`<img class="lg-backdrop" id="lgBackdrop" src="app-cover.svg" alt="" aria-hidden="true"><div class="lg-ambient" aria-hidden="true"></div><section class="lg-browser"><header class="lg-header"><div><small>SPIN Player</small><h1 id="lgPageTitle">Библиотека</h1></div><button type="button" class="lg-icon" id="lgPalette" aria-label="Сменить палитру">◐</button></header><div id="glassMainDock"></div></section><section id="glassPlayerDock"></section><aside id="glassSidePanel" class="lg-side"><div class="glass-panel-tabs" role="group" aria-label="Панель плеера"><button type="button" data-glass-panel="lyrics">Текст</button><button type="button" data-glass-panel="queue">Очередь</button><button type="button" id="lgClosePanel" aria-label="Скрыть панель">${icon('close')}</button></div><div id="glassPanelBody"></div></aside><div id="lgLyricStash" hidden></div><div class="lg-mini" id="lgMini"></div><nav class="lg-bottom" aria-label="Главная навигация"><i class="lg-indicator" aria-hidden="true"></i>${routes()}</nav>`;
     body.append(shell);
     const main=$('#main'),player=$('#player');
     shell.querySelector('#glassMainDock').append(main);
@@ -156,6 +156,7 @@
     if(view==='player')$('#glassPlayerDock').scrollTop=0;
     else window.spinRestoreNavigation?.();
     updateMini();renderSidePanel();startFrame();
+    if(view==='player')window.spinShowPlayerGuide?.('liquid-glass');
   }
   function updateNav(){
     const active=page==='downloads'?(downloadTab==='search'?'online':'downloads'):page==='settings'?'settings':'library';
@@ -179,7 +180,7 @@
     $('#shuffle')?.setAttribute('aria-pressed',String(shuffle));
     repeatButton?.setAttribute('aria-pressed',String(Number(repeat)>0));
     if($('#totalTime'))$('#totalTime').textContent=fmt(t.duration);
-    updateLaser();updateMini();
+    updateLaser();updateCdSeekbar();updateMini();
   }
   function renderGlassPlayer(){
     ensureShell();
@@ -187,7 +188,7 @@
     let oldScene=$('#cdScene'),oldIdentity=sceneIdentity,oldTrack=sceneTrack;
     if(!player.querySelector('.lg-stage')){
       if($('#glassSidePanel')?.closest('#player'))ensureShell().append($('#glassSidePanel'));
-      player.innerHTML=`<header class="lg-player-top"><button class="lg-icon" id="lgClosePlayer" aria-label="Вернуться к библиотеке">${icon('back')}</button><span>СЕЙЧАС ИГРАЕТ</span><button class="lg-icon" id="lgTrackMenu" data-menu="${t.id}" aria-label="Меню песни">${icon('more')}</button></header><div class="lg-media-area"><div class="lg-stage" id="lgStage"></div></div><div class="lg-now"><div><h2 id="lgTrackName"></h2><p id="lgTrackArtist"></p></div><button class="lg-icon" id="lgFav" data-fav="${t.id}" aria-label="В избранное">${icon('heart')}</button></div><div class="lg-time"><span id="elapsed">${fmt(position)}</span><span id="totalTime">${fmt(t.duration)}</span></div><div class="lg-transport"><button class="lg-icon" id="shuffle" aria-label="Случайный порядок">${icon('shuffle')}</button><button class="lg-icon" id="prev" aria-label="Предыдущая песня">${icon('prev')}</button><button class="lg-play" id="play" aria-label="Воспроизведение">${icon('play')}</button><button class="lg-icon" id="next" aria-label="Следующая песня">${icon('next')}</button><button class="lg-icon" id="repeat" aria-label="Повтор выключен">${icon('repeat')}</button></div><label class="lg-volume"><span>Звук</span><input id="volume" aria-label="Громкость" type="range" min="0" max="1" step=".01" value="${volume}"></label><div class="lg-player-tools"><button class="lg-pill" id="lgLyricsBtn">${icon('music')} Текст</button><button class="lg-pill" id="lgQueueBtn">${icon('queue')} Очередь</button><button class="lg-pill" data-timer>Таймер</button></div>`;
+      player.innerHTML=`<header class="lg-player-top"><button class="lg-icon" id="lgClosePlayer" aria-label="Вернуться к библиотеке">${icon('back')}</button><span>СЕЙЧАС ИГРАЕТ</span><button class="lg-icon" id="lgTrackMenu" data-menu="${t.id}" aria-label="Меню песни">${icon('more')}</button></header><div class="lg-media-area"><div class="lg-stage" id="lgStage"></div></div><div class="lg-now"><div><h2 id="lgTrackName"></h2><p id="lgTrackArtist"></p></div><button class="lg-icon" id="lgFav" data-fav="${t.id}" aria-label="В избранное">${icon('heart')}</button></div><div class="lg-time"><span id="elapsed">${fmt(position)}</span><input type="range" id="lgSeekbar" min="0" max="0" step="any" aria-label="Позиция воспроизведения"><span id="totalTime">${fmt(t.duration)}</span></div><div class="lg-transport"><button class="lg-icon" id="shuffle" aria-label="Случайный порядок">${icon('shuffle')}</button><button class="lg-icon" id="prev" aria-label="Предыдущая песня">${icon('prev')}</button><button class="lg-play" id="play" aria-label="Воспроизведение">${icon('play')}</button><button class="lg-icon" id="next" aria-label="Следующая песня">${icon('next')}</button><button class="lg-icon" id="repeat" aria-label="Повтор выключен">${icon('repeat')}</button></div><label class="lg-volume"><span>Звук</span><input id="volume" aria-label="Громкость" type="range" min="0" max="1" step=".01" value="${volume}"></label><div class="lg-player-tools"><button class="lg-pill" id="lgLyricsBtn">${icon('music')} Текст</button><button class="lg-pill" id="lgQueueBtn">${icon('queue')} Очередь</button><button class="lg-pill" data-timer>Таймер</button></div>`;
       oldScene=null;
     }
     const same=oldScene&&oldIdentity===media.key;
@@ -258,7 +259,7 @@
   };
   function settingsSection(){
     const el=document.createElement('section');el.id='appStyleSettings';el.className='settings-card app-style-settings';el.setAttribute('aria-labelledby','appStyleHeading');
-    el.innerHTML='<h2 id="appStyleHeading">Стиль приложения</h2><p>Оформление всего плеера. Палитра настраивается отдельно.</p><div class="app-style-options" role="group" aria-label="Стиль приложения">'+[['vinyl','Винил','Пластинка и игла'],['liquid-glass','Liquid Glass','CD, коробка и лазер'],['cassette','Кассета','В разработке']].map(([id,name,detail])=>`<button type="button" class="app-style-choice ${style===id?'selected':''}" data-app-style="${id}" aria-pressed="${style===id}" ${id==='cassette'?'disabled':''}><span class="app-style-icon style-icon-${id}" aria-hidden="true"></span><b>${name}</b><small>${detail}</small></button>`).join('')+'</div>';
+    el.innerHTML='<h2 id="appStyleHeading">Тип проигрывателя</h2><p>Оформление всего плеера. Палитра настраивается отдельно.</p><div class="app-style-options" role="group" aria-label="Тип проигрывателя">'+[['vinyl','Виниловый проигрыватель','Пластинка и игла'],['liquid-glass','CD-проигрыватель','CD, коробка и лазер'],['cassette','Кассетный проигрыватель','В разработке']].map(([id,name,detail])=>`<button type="button" class="app-style-choice ${style===id?'selected':''}" data-app-style="${id}" aria-pressed="${style===id}" ${id==='cassette'?'disabled':''}><span class="app-style-icon style-icon-${id}" aria-hidden="true"></span><b>${name}</b><small>${detail}</small></button>`).join('')+'</div>';
     return el;
   }
   const beforeMain=renderMain;
@@ -274,8 +275,19 @@
     if(isGlass()){renderGlassPlayer();transitionTrack=current;}
     else{cancelMotions();sceneIdentity='';sceneTrack=null;beforePlayer();}
   };
+  function updateCdSeekbar(){
+    const bar=$('#lgSeekbar');if(!bar)return;
+    const length=duration();
+    bar.max=length;
+    bar.disabled=!(length>0);
+    if(!bar.matches(':active'))bar.value=Math.max(0,Math.min(position,length));
+    bar.setAttribute('aria-valuetext',fmt(Number(bar.value)));
+  }
   const beforeProgress=updateProgress;
-  updateProgress=function(){beforeProgress();updateLaser();};
+  updateProgress=function(){beforeProgress();updateLaser();updateCdSeekbar();};
+  document.addEventListener('change',e=>{
+    if(e.target.id==='lgSeekbar'&&!e.target.disabled)seek(Number(e.target.value));
+  });
   const beforeSync=syncPlaying;
   syncPlaying=function(){
     if(!isGlass())return beforeSync();
@@ -313,6 +325,7 @@
     window.SpinStyleColors?.save();
     style=next;body.dataset.appStyle=style;safeSave(KEY,style);
     window.SpinStyleColors?.load();
+    applyAppearance041();
     body.classList.remove('wide-lyrics','queue-open','glass-expanded','glass-wide','cover-playing');$('#sideQueue')?.remove();queueOpen=false;
     if(isGlass())ensureShell();else removeShell();
     renderMain();renderPlayer();

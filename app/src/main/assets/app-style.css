@@ -331,3 +331,7 @@ body[data-app-style=liquid-glass][data-theme=light] dialog{background:rgba(237,2
 #bottomNav [data-vinyl-action=create] svg{
   padding:2px;border:1px solid var(--line);border-radius:6px;
 }
+
+#lgSeekbar{display:none;min-width:0;flex:1;width:auto;accent-color:var(--accent);touch-action:pan-y}
+body.show-seekbar #lgSeekbar{display:block;margin:0 .75rem}
+.app-style-choice b{overflow-wrap:anywhere}

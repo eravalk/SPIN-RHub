@@ -7,7 +7,7 @@ public class MainActivity extends Activity {
  MusicConnections musicConnections;
  @Override public void onCreate(Bundle b){super.onCreate(b);musicConnections=new MusicConnections(this);web=new WebView(this);android.widget.FrameLayout viewport=new android.widget.FrameLayout(this);viewport.setBackgroundColor(0xff07152a);viewport.addView(web,new android.widget.FrameLayout.LayoutParams(-1,-1));setContentView(viewport);web.setBackgroundColor(0xff171416);web.setPadding(0,0,0,0);
  viewport.setOnApplyWindowInsetsListener((v,insets)->{android.graphics.Insets safe=insets.getInsets(android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout());android.widget.FrameLayout.LayoutParams params=(android.widget.FrameLayout.LayoutParams)web.getLayoutParams();if(params.leftMargin!=safe.left||params.topMargin!=safe.top||params.rightMargin!=safe.right||params.bottomMargin!=safe.bottom){params.setMargins(safe.left,safe.top,safe.right,safe.bottom);web.setLayoutParams(params);}return insets;});viewport.requestApplyInsets();
- WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMediaPlaybackRequiresUserGesture(true);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);web.addJavascriptInterface(new Bridge(),"SpinNative");
+ WebSettings s=web.getSettings();s.setSupportZoom(false);s.setBuiltInZoomControls(false);s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMediaPlaybackRequiresUserGesture(true);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);web.addJavascriptInterface(new Bridge(),"SpinNative");
  web.setWebViewClient(new WebViewClient(){@Override public boolean shouldOverrideUrlLoading(WebView v,WebResourceRequest r){return true;}@Override public WebResourceResponse shouldInterceptRequest(WebView v,WebResourceRequest req){Uri u=req.getUrl();if(!"spin.local".equals(u.getHost()))return new WebResourceResponse("text/plain","UTF-8",new ByteArrayInputStream(new byte[0]));String path=u.getPath();if("/thumb".equals(path))return onlineThumb(u.getQueryParameter("url"));if(path==null||path.contains(".."))return null;try{String file=path.equals("/")?"index.html":path.substring(1);String mime=file.endsWith(".js")?"application/javascript":file.endsWith(".css")?"text/css":file.endsWith(".jpg")?"image/jpeg":file.endsWith(".png")?"image/png":file.endsWith(".svg")?"image/svg+xml":"text/html";InputStream data=file.startsWith("art/")?new FileInputStream(new File(getFilesDir(),file)):getAssets().open(file);return new WebResourceResponse(mime,"UTF-8",data);}catch(Exception e){return new WebResourceResponse("text/plain","UTF-8",404,"Not found",null,new ByteArrayInputStream(new byte[0]));}}});
  web.setWebChromeClient(new WebChromeClient(){@Override public boolean onConsoleMessage(ConsoleMessage message){if(message.messageLevel()==ConsoleMessage.MessageLevel.ERROR){String source;try{source=new java.net.URI(message.sourceId()).getPath();}catch(Exception e){source="unknown";}String m=message.message();String kind=m.contains("not a function")?"not_a_function":m.contains("null")?"null_reference":m.contains("undefined")?"undefined_reference":"console_error";AppDiagnostics.log(MainActivity.this,"WEBVIEW_ERROR file="+source+" line="+message.lineNumber()+" kind="+kind);}return false;}@Override public boolean onShowFileChooser(WebView v,ValueCallback<Uri[]> callback,FileChooserParams params){if(fileCallback!=null)fileCallback.onReceiveValue(null);fileCallback=callback;Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivityForResult(i,11);return true;}}); web.loadUrl("https://spin.local/");if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS},1);main.postDelayed(ticker,600);
  }
@@ -71,14 +71,14 @@ public class MainActivity extends Activity {
       if (!alive) return;
       try {
        if (!getPackageManager().canRequestPackageInstalls()) {
-        send("spinToast", JSONObject.quote("Разреши установку обновлений для SPIN RHub, затем нажми «Установить» ещё раз."));
+        send("spinToast", JSONObject.quote("Разреши установку обновлений для SPIN Player, затем нажми «Установить» ещё раз."));
         startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                 Uri.parse("package:" + getPackageName())));
         return;
        }
        Intent intent = new Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-       intent.setClipData(ClipData.newRawUri("SPIN RHub update", uri));
+       intent.setClipData(ClipData.newRawUri("SPIN Player update", uri));
        startActivity(intent);
       } catch (Exception e) { send("spinToast", JSONObject.quote("Не удалось открыть установщик Android.")); }
      });
@@ -134,7 +134,7 @@ public class MainActivity extends Activity {
    try{
     String code=new JSONObject(activationState()).getString("code");
     android.content.ClipboardManager clipboard=getSystemService(android.content.ClipboardManager.class);
-    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("SPIN RHub",code));
+    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("SPIN Player",code));
     send("spinCodeCopied",true);
    }catch(Exception error){send("spinCodeCopied",false);}
   });
