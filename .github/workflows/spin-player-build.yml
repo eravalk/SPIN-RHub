@@ -1,0 +1,83 @@
+name: Verify SPIN Player debug branch build
+on:
+  push:
+    branches: ['work/spin-player-refresh']
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Verify release signing is configured
+        env:
+          SIGNING_STORE: ${{ secrets.SPIN_KEYSTORE_BASE64 }}
+          SIGNING_PASSWORD: ${{ secrets.SPIN_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$SIGNING_STORE" ] || [ -z "$SIGNING_PASSWORD" ]; then
+            echo "::error::The repository's existing Android release signing secrets are unavailable."
+            exit 1
+          fi
+      - name: Prepare Android tooling and pinned runtime assets
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          curl -fLsS --retry 3 https://repo.maven.apache.org/maven2/org/eclipse/jdt/ecj/3.38.0/ecj-3.38.0.jar -o "$RUNNER_TEMP/ecj.jar"
+          curl -fLsS --retry 3 https://github.com/eravalk/SPIN-RHub/releases/download/v1.3.0.0/SPIN-RHub-1.3.0.0-source.zip -o "$RUNNER_TEMP/spin-source.zip"
+          echo "683491248fbbb7f43b50684934f26f3c243890f2a1889b373786a81bae2f7d09  $RUNNER_TEMP/spin-source.zip" | sha256sum --check
+          python3 - <<'PY'
+          from pathlib import Path, PurePosixPath
+          from shutil import copyfileobj
+          from zipfile import ZipFile
+          import os
+
+          with ZipFile(Path(os.environ['RUNNER_TEMP']) / 'spin-source.zip') as archive:
+              for entry in archive.infolist():
+                  parts = PurePosixPath(entry.filename).parts
+                  if entry.is_dir() or 'app' not in parts:
+                      continue
+                  parts = parts[parts.index('app'):]
+                  if '..' in parts:
+                      raise ValueError(entry.filename)
+                  jar = parts[:2] == ('app', 'libs') and parts[-1].endswith('.jar')
+                  asset = parts[:4] == ('app', 'src', 'main', 'assets') and parts[-1].endswith('.zip')
+                  native = parts[:4] == ('app', 'src', 'main', 'jniLibs') and parts[-1].endswith('.so')
+                  if not (jar or asset or native):
+                      continue
+                  target = Path(*parts)
+                  if not target.exists():
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      with archive.open(entry) as source, target.open('wb') as output:
+                          copyfileobj(source, output)
+          PY
+      - name: Build and verify the signed APK
+        env:
+          SIGNING_STORE: ${{ secrets.SPIN_KEYSTORE_BASE64 }}
+          SIGNING_PASSWORD: ${{ secrets.SPIN_KEYSTORE_PASSWORD }}
+        run: |
+          set -eu
+          umask 077
+          mkdir -p signing
+          trap 'rm -rf signing' EXIT
+          printf '%s' "$SIGNING_STORE" | base64 -d > signing/spin-next.keystore
+          printf '%s' "$SIGNING_PASSWORD" > signing/password.txt
+          SPIN_SDK="$ANDROID_HOME" SPIN_ECJ_JAR="$RUNNER_TEMP/ecj.jar" bash build-local.sh
+          read -r version code < <(python3 tools/version.py --values)
+          apk="SPIN-RHub-$version.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$apk" | grep -F "name='com.spinplayer.next' versionCode='$code' versionName='$version'"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" | grep -Fi '2ca31960c7451a23e94f8a08762f9c45b78f2d62eadacbd50e7060df87ae14ed'
+          sha256sum "$apk" | tee SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signed-spin-player-apk
+          path: |
+            SPIN-RHub-*.apk
+            SHA256SUMS
+          if-no-files-found: error
