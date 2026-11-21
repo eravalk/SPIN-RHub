@@ -7,20 +7,22 @@
   }[page] || [])]);
   const regions = () => ({
     document: document.scrollingElement, workspace: document.querySelector('.workspace'),
-    main: document.getElementById('main'), player: document.getElementById('player'),
+    main: document.getElementById('main'), glass: document.querySelector('.lg-browser'), player: document.getElementById('player'),
     queue: document.getElementById('sideQueue')
   });
   const positions = new Map();
+  let tabsLeft = Number(localStorage.getItem('spinLibraryTabsLeft')) || 0;
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
     if (Array.isArray(saved)) for (const [key, value] of saved.slice(-160)) {
       if (typeof key !== 'string' || key.length > 4096 || !value || typeof value !== 'object') continue;
       const offsets = {};
-      for (const name of ['document', 'workspace', 'main', 'player', 'queue']) {
+      for (const name of ['document', 'workspace', 'main', 'player', 'queue', 'glass']) {
         const y = value.offsets?.[name];
         if (Number.isFinite(y) && y >= 0) offsets[name] = y;
       }
-      positions.set(key, {offsets, details: Array.isArray(value.details) ? value.details.filter(x => typeof x === 'string').slice(0, 40) : []});
+      const anchor = value.anchor && typeof value.anchor.id === 'string' && Number.isFinite(value.anchor.delta) && Number.isFinite(value.anchor.width) ? value.anchor : null;
+      positions.set(key, {offsets, anchor, details: Array.isArray(value.details) ? value.details.filter(x => typeof x === 'string').slice(0, 40) : []});
     }
   } catch {}
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
@@ -30,12 +32,25 @@
   function persist() {
     try { localStorage.setItem(storageKey, JSON.stringify([...positions].slice(-160))); } catch {}
   }
+  function albumAnchor() {
+    if (displayed !== '["library","albums"]') return null;
+    const bar=document.querySelector('.library-tabs');
+    if (!bar?.getClientRects().length) return null;
+    const top=bar.getBoundingClientRect().bottom;
+    const tile=[...document.querySelectorAll('#main .album-tile[data-album]')].find(el=>el.getBoundingClientRect().bottom>top+1);
+    return tile ? {id:tile.dataset.album,delta:tile.getBoundingClientRect().top-top,width:document.getElementById('main').clientWidth} : null;
+  }
   function remember() {
-    if (restoring || awaitingContent) return;
+    if (restoring || awaitingContent || document.querySelector('#glassShell[data-view=player]')) return;
+    const tabs = document.querySelector('.library-tabs');
+    if (tabs && tabs.scrollWidth > tabs.clientWidth && tabs.getClientRects().length) {
+      tabsLeft = tabs.scrollLeft;
+      try { localStorage.setItem('spinLibraryTabsLeft', String(tabsLeft)); } catch {}
+    }
     const offsets = {};
     for (const [name, el] of Object.entries(regions())) if (el) offsets[name] = el.scrollTop;
     positions.delete(displayed);
-    positions.set(displayed, {offsets, details: details().filter(el => el.open).map(detailKey)});
+    positions.set(displayed, {offsets, anchor:albumAnchor(), details: details().filter(el => el.open).map(detailKey)});
     while (positions.size > 160) positions.delete(positions.keys().next().value);
     persist();
   }
@@ -46,11 +61,25 @@
     if (target) for (const el of details()) el.open = target.details.includes(detailKey(el));
     const apply = () => {
       awaitingContent = false;
+      const tabs = document.querySelector('.library-tabs');
+      if (tabs) tabs.scrollLeft = tabsLeft;
       for (const [name, el] of Object.entries(regions())) {
         if (!el) continue;
-        const y = target?.offsets[name] || 0;
+        if (el.closest?.('[hidden]') || (typeof el.getClientRects === 'function' && !el.getClientRects().length && name === 'glass')) continue;
+        const cross = name === 'glass' ? target?.offsets.document : name === 'document' ? target?.offsets.glass : undefined;
+        const y = target?.offsets[name] ?? cross ?? 0;
         el.scrollTop = y;
         if (y > 0 && el.scrollHeight <= el.clientHeight && page !== 'settings') awaitingContent = true;
+      }
+      const anchor=target?.anchor;
+      const main=document.getElementById('main');
+      if (anchor && main && Math.abs(main.clientWidth-anchor.width)>2){
+        const tile=[...main.querySelectorAll('.album-tile[data-album]')].find(el=>el.dataset.album===anchor.id);
+        const bar=main.querySelector('.library-tabs');
+        const scroller=regions().glass || document.scrollingElement;
+        if(tile && bar && scroller && bar.getClientRects().length){
+          scroller.scrollTop+=tile.getBoundingClientRect().top-bar.getBoundingClientRect().bottom-anchor.delta;
+        }
       }
     };
     apply();
@@ -67,6 +96,11 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden) remember(); });
   window.addEventListener('pagehide', remember);
   window.spinPersistNavigation = remember;
+  window.spinRestoreNavigation = restore;
+  window.spinSuspendNavigation = () => { awaitingContent = true; };
+  window.addEventListener('resize', () => {
+    if (page === 'library' && category === 'albums') restore();
+  });
   let status = 'idle', availableVersion = '', notes = '', manual = false, starting = false;
   let download = {status: 'idle'};
   const labels = {

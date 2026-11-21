@@ -74,7 +74,7 @@
   }
   function sceneNode(media) {
     const scene = document.createElement('div'); scene.id='cdScene'; scene.className='cd-scene';
-    scene.innerHTML=`<div class="cd-case" aria-label="Обложка ${esc(media.name)}"><div class="cd-case-spine"></div><div class="cd-case-lid"><img src="${esc(media.cover)}" alt=""><div class="cd-case-title"><strong>${esc(media.name)}</strong><small>${esc(media.artist)}</small></div></div></div><div class="cd-disc-holder"><div class="cd-disc" aria-hidden="true"><div class="cd-print"><img src="${esc(media.cover)}" alt=""></div><div class="cd-diffraction"></div></div><div class="cd-hub" aria-hidden="true"></div><div id="cdLaser" class="cd-laser" role="slider" tabindex="0" aria-label="Лазер — позиция песни" aria-valuemin="0" aria-valuemax="${duration()}" aria-valuenow="${Math.floor(position)}"><span class="cd-laser-dot"></span><output class="cd-seek-time" hidden></output></div><div class="cd-seek-guide" aria-hidden="true"></div></div>`;
+    scene.innerHTML=`<div class="cd-case" aria-label="Обложка ${esc(media.name)}"><div class="cd-case-spine"><strong>${esc(media.name)}</strong></div><div class="cd-case-lid"><img src="${esc(media.cover)}" alt=""></div></div><div class="cd-disc-holder"><div class="cd-disc" aria-hidden="true"><div class="cd-print"><img src="${esc(media.cover)}" alt=""></div><div class="cd-diffraction"></div></div><div class="cd-hub" aria-hidden="true"></div><div id="cdLaser" class="cd-laser" role="slider" tabindex="0" aria-label="Лазер — позиция песни" aria-valuemin="0" aria-valuemax="${duration()}" aria-valuenow="${Math.floor(position)}"><span class="cd-laser-dot"></span><output class="cd-seek-time" hidden></output></div><div class="cd-seek-guide" aria-hidden="true"></div></div>`;
     scene.querySelectorAll('img').forEach(img => img.addEventListener('error', () => { if(!img.src.endsWith('/app-cover.svg'))img.src='app-cover.svg'; }, {once:true}));
     return scene;
   }
@@ -128,15 +128,16 @@
       needleTrack=current;needlePending=Math.max(0,Math.min(duration(),target));needleGuardUntil=performance.now()+1500;seek(needlePending);
     };
   }
-  let rightTab=lyricsEnabled?'lyrics':'queue', view='browser', panelOpen=true;
+  let rightTab=lyricsEnabled?'lyrics':'queue', view='browser', panelOpen=lyricsEnabled;
   const basePlayerClass=$('#player').className;
+  const gearIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2h4l.7 2.6 2 .9L19 4.2l2.8 2.8-1.3 2.3.9 2L24 12v4l-2.6.7-.9 2 1.3 2.3-2.8 2.8-2.3-1.3-2 .9L14 26h-4l-.7-2.6-2-.9L5 23.8 2.2 21l1.3-2.3-.9-2L0 16v-4l2.6-.7.9-2L2.2 7 5 4.2l2.3 1.3 2-.9Z" transform="translate(2 0) scale(.83)"/><circle cx="12" cy="11.6" r="3"/></svg>';
   function routes(){
-    return [['library','music','Библиотека'],['online','search','Поиск'],['downloads','download','Загрузки'],['settings','settings','Настройки']].map(([id,i,title])=>`<button type="button" data-lg-route="${id}" aria-label="${title}">${icon(i)}<span>${title}</span></button>`).join('');
+    return [['library','music','Библиотека'],['online','search','Поиск'],['create','plus','Плейлист'],['downloads','download','Загрузки'],['settings','settings','Настройки']].map(([id,i,title])=>`<button type="button" data-lg-route="${id}" aria-label="${id==='create'?'Создать плейлист':title}">${i==='settings'?gearIcon:icon(i)}<span>${title}</span></button>`).join('');
   }
   function ensureShell(){
     let shell=$('#glassShell');if(shell)return shell;
     shell=document.createElement('div');shell.id='glassShell';shell.dataset.view=view;
-    shell.innerHTML=`<img class="lg-backdrop" id="lgBackdrop" src="app-cover.svg" alt="" aria-hidden="true"><div class="lg-ambient" aria-hidden="true"></div><aside class="lg-rail"><button class="lg-brand" data-lg-route="library" aria-label="SPIN RHub — библиотека"><span class="lg-brand-disc"></span><b>SPIN RHub</b></button><nav aria-label="Главная навигация">${routes()}</nav></aside><section class="lg-browser"><header class="lg-header"><div><small>SPIN RHub</small><h1 id="lgPageTitle">Библиотека</h1></div><button type="button" class="lg-icon" id="lgPalette" aria-label="Сменить палитру">◐</button></header><div id="glassMainDock"></div></section><section id="glassPlayerDock"></section><aside id="glassSidePanel" class="lg-side"><div class="glass-panel-tabs" role="group" aria-label="Панель плеера"><button type="button" data-glass-panel="lyrics">Текст</button><button type="button" data-glass-panel="queue">Очередь</button><button type="button" id="lgClosePanel" aria-label="Скрыть панель">${icon('close')}</button></div><div id="glassPanelBody"></div></aside><div id="lgLyricStash" hidden></div><div class="lg-mini" id="lgMini"></div><nav class="lg-bottom" aria-label="Главная навигация">${routes()}</nav>`;
+    shell.innerHTML=`<img class="lg-backdrop" id="lgBackdrop" src="app-cover.svg" alt="" aria-hidden="true"><div class="lg-ambient" aria-hidden="true"></div><section class="lg-browser"><header class="lg-header"><div><small>SPIN RHub</small><h1 id="lgPageTitle">Библиотека</h1></div><button type="button" class="lg-icon" id="lgPalette" aria-label="Сменить палитру">◐</button></header><div id="glassMainDock"></div></section><section id="glassPlayerDock"></section><aside id="glassSidePanel" class="lg-side"><div class="glass-panel-tabs" role="group" aria-label="Панель плеера"><button type="button" data-glass-panel="lyrics">Текст</button><button type="button" data-glass-panel="queue">Очередь</button><button type="button" id="lgClosePanel" aria-label="Скрыть панель">${icon('close')}</button></div><div id="glassPanelBody"></div></aside><div id="lgLyricStash" hidden></div><div class="lg-mini" id="lgMini"></div><nav class="lg-bottom" aria-label="Главная навигация"><i class="lg-indicator" aria-hidden="true"></i>${routes()}</nav>`;
     body.append(shell);
     const main=$('#main'),player=$('#player');
     shell.querySelector('#glassMainDock').append(main);
@@ -153,11 +154,13 @@
   function setView(next){
     view=next;ensureShell().dataset.view=view;
     if(view==='player')$('#glassPlayerDock').scrollTop=0;
+    else window.spinRestoreNavigation?.();
     updateMini();renderSidePanel();startFrame();
   }
   function updateNav(){
     const active=page==='downloads'?(downloadTab==='search'?'online':'downloads'):page==='settings'?'settings':'library';
     $$('#glassShell [data-lg-route]').forEach(b=>{b.classList.toggle('active',b.dataset.lgRoute===active);if(b.closest('nav'))b.setAttribute('aria-current',b.dataset.lgRoute===active?'page':'false');});
+    $('#glassShell .lg-bottom').style.setProperty('--slot', ['library','online','create','downloads','settings'].indexOf(active));
     const title=$('#lgPageTitle');if(title)title.textContent=page==='downloads'&&downloadTab==='search'?'Поиск':$('#pageTitle')?.textContent||'Библиотека';
   }
   function updateMini(){
@@ -173,6 +176,8 @@
     const menu=$('#lgTrackMenu');if(menu){menu.dataset.menu=t.id;menu.disabled=t.id===-1;}
     const repeatButton=$('#repeat');if(repeatButton){repeatButton.classList.toggle('on',Number(repeat)>0);repeatButton.setAttribute('aria-label',['Повтор выключен','Повтор очереди','Повтор трека'][Number(repeat)]);repeatButton.innerHTML=icon('repeat')+(Number(repeat)===2?'<small>1</small>':'');}
     $('#shuffle')?.classList.toggle('on',shuffle);
+    $('#shuffle')?.setAttribute('aria-pressed',String(shuffle));
+    repeatButton?.setAttribute('aria-pressed',String(Number(repeat)>0));
     if($('#totalTime'))$('#totalTime').textContent=fmt(t.duration);
     updateLaser();updateMini();
   }
@@ -181,14 +186,14 @@
     const t=currentTrack(),media=mediaFor(t),player=$('#player');
     let oldScene=$('#cdScene'),oldIdentity=sceneIdentity,oldTrack=sceneTrack;
     if(!player.querySelector('.lg-stage')){
-      player.innerHTML=`<header class="lg-player-top"><button class="lg-icon" id="lgClosePlayer" aria-label="Вернуться к библиотеке">${icon('back')}</button><span>СЕЙЧАС ИГРАЕТ</span><button class="lg-icon" id="lgTrackMenu" data-menu="${t.id}" aria-label="Меню песни">${icon('more')}</button></header><div class="lg-stage" id="lgStage"></div><div class="lg-now"><div><h2 id="lgTrackName"></h2><p id="lgTrackArtist"></p></div><button class="lg-icon" id="lgFav" data-fav="${t.id}" aria-label="В избранное">${icon('heart')}</button></div><div class="lg-time"><span id="elapsed">${fmt(position)}</span><span id="totalTime">${fmt(t.duration)}</span></div><div class="lg-transport"><button class="lg-icon" id="shuffle" aria-label="Случайный порядок">${icon('shuffle')}</button><button class="lg-icon" id="prev" aria-label="Предыдущая песня">${icon('prev')}</button><button class="lg-play" id="play" aria-label="Воспроизведение">${icon('play')}</button><button class="lg-icon" id="next" aria-label="Следующая песня">${icon('next')}</button><button class="lg-icon" id="repeat" aria-label="Повтор выключен">${icon('repeat')}</button></div><div class="lg-player-tools"><button class="lg-pill" id="lgLyricsBtn">${icon('music')} Текст</button><button class="lg-pill" id="lgQueueBtn">${icon('queue')} Очередь</button><button class="lg-pill" data-timer>Таймер</button></div>`;
+      if($('#glassSidePanel')?.closest('#player'))ensureShell().append($('#glassSidePanel'));
+      player.innerHTML=`<header class="lg-player-top"><button class="lg-icon" id="lgClosePlayer" aria-label="Вернуться к библиотеке">${icon('back')}</button><span>СЕЙЧАС ИГРАЕТ</span><button class="lg-icon" id="lgTrackMenu" data-menu="${t.id}" aria-label="Меню песни">${icon('more')}</button></header><div class="lg-media-area"><div class="lg-stage" id="lgStage"></div></div><div class="lg-now"><div><h2 id="lgTrackName"></h2><p id="lgTrackArtist"></p></div><button class="lg-icon" id="lgFav" data-fav="${t.id}" aria-label="В избранное">${icon('heart')}</button></div><div class="lg-time"><span id="elapsed">${fmt(position)}</span><span id="totalTime">${fmt(t.duration)}</span></div><div class="lg-transport"><button class="lg-icon" id="shuffle" aria-label="Случайный порядок">${icon('shuffle')}</button><button class="lg-icon" id="prev" aria-label="Предыдущая песня">${icon('prev')}</button><button class="lg-play" id="play" aria-label="Воспроизведение">${icon('play')}</button><button class="lg-icon" id="next" aria-label="Следующая песня">${icon('next')}</button><button class="lg-icon" id="repeat" aria-label="Повтор выключен">${icon('repeat')}</button></div><label class="lg-volume"><span>Звук</span><input id="volume" aria-label="Громкость" type="range" min="0" max="1" step=".01" value="${volume}"></label><div class="lg-player-tools"><button class="lg-pill" id="lgLyricsBtn">${icon('music')} Текст</button><button class="lg-pill" id="lgQueueBtn">${icon('queue')} Очередь</button><button class="lg-pill" data-timer>Таймер</button></div>`;
       oldScene=null;
     }
     const same=oldScene&&oldIdentity===media.key;
     const scene=same?oldScene:sceneNode(media);
     scene.querySelector('.cd-case').setAttribute('aria-label','Обложка '+media.name);
-    scene.querySelector('.cd-case-title strong').textContent=media.name;
-    scene.querySelector('.cd-case-title small').textContent=media.artist;
+    scene.querySelector('.cd-case-spine strong').textContent=media.name;
     scene.querySelectorAll('img').forEach(img=>{if(img.getAttribute('src')!==media.cover)img.src=media.cover;});
     if(!same){$('#lgStage').replaceChildren(scene);angle=0;speed=0;attachLaser(scene);playTransition(scene,oldScene,!!oldScene);}
     sceneIdentity=media.key;sceneTrack=t.id;
@@ -196,13 +201,22 @@
     scene.querySelector('.cd-disc').style.transform='rotate('+angle+'deg)';
     updatePlayerControls();renderSidePanel();startFrame();
   }
+  function togglePanel(tab){
+    panelOpen=rightTab!==tab || !panelOpen;
+    rightTab=tab;
+    renderSidePanel();
+  }
   function renderSidePanel(){
     if(!isGlass())return;
     const shell=ensureShell(),panel=$('#glassSidePanel'),host=$('#glassPanelBody');
-    const target=innerWidth>=1100?shell:$('#glassPlayerDock');if(panel.parentNode!==target)target.append(panel);
+    const stage=$('#lgStage');
+    if(stage && panel.parentNode!==stage.parentNode)stage.after(panel);
     shell.dataset.panel=panelOpen?rightTab:'closed';
     panel.hidden=!panelOpen;
     panel.querySelectorAll('[data-glass-panel]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.glassPanel===rightTab));
+    $('#lgLyricsBtn')?.setAttribute('aria-pressed',panelOpen&&rightTab==='lyrics');
+    $('#lgQueueBtn')?.setAttribute('aria-pressed',panelOpen&&rightTab==='queue');
+    if(!panelOpen)return;
     if(rightTab==='queue'){
       const keep=host.querySelector('#persistentLyrics');if(keep)$('#lgLyricStash').append(keep);
       host.innerHTML=queueHtml04().replace(/<button class="icon-btn" id="closeQueue04"[\s\S]*?<\/button>/,'');
@@ -211,8 +225,6 @@
       if(lyrics){if(lyrics.parentNode!==host)host.replaceChildren(lyrics);}
       else host.innerHTML='<div class="lg-empty"><p>Текст пока не найден</p><button class="lg-pill" id="glassOpenLyrics">Найти или добавить текст</button></div>';
     }
-    $('#lgLyricsBtn')?.setAttribute('aria-pressed',panelOpen&&rightTab==='lyrics');
-    $('#lgQueueBtn')?.setAttribute('aria-pressed',panelOpen&&rightTab==='queue');
   }
   const beforeLyrics=renderPersistentLyrics;
   renderPersistentLyrics=function(){
@@ -238,7 +250,7 @@
     if(id!==current||id===-1)return toast('Сначала включи песню');
     rightTab='lyrics';panelOpen=true;lyricsEnabled=true;safeSave('spinLyricsVisible','true');
     setView('player');renderPersistentLyrics();
-    requestAnimationFrame(()=>{if(innerWidth<1100)$('#glassSidePanel')?.scrollIntoView({block:'nearest',behavior:motionAllowed()?'smooth':'auto'});});
+
   };
   closeLyrics=function(){
     if(!isGlass())return beforeCloseLyrics();
@@ -294,13 +306,16 @@
   function startFrame(){if(!animationFrame&&isGlass()&&!document.hidden)animationFrame=requestAnimationFrame(frame);}
   function applyStyle(next){
     if(!available.has(next))return;
-    window.spinPersistNavigation?.();const oldScroll=$('#main').scrollTop;
+    window.spinPersistNavigation?.();
+    window.spinSuspendNavigation?.();
     cancelDrag();cancelMotions();if(animationFrame)cancelAnimationFrame(animationFrame);animationFrame=0;lastFrame=0;
     if(activeSwap)activeSwap.finish();
+    window.SpinStyleColors?.save();
     style=next;body.dataset.appStyle=style;safeSave(KEY,style);
+    window.SpinStyleColors?.load();
     body.classList.remove('wide-lyrics','queue-open','glass-expanded','glass-wide','cover-playing');$('#sideQueue')?.remove();queueOpen=false;
     if(isGlass())ensureShell();else removeShell();
-    renderMain();renderPlayer();$('#main').scrollTop=oldScroll;
+    renderMain();renderPlayer();
     if(page==='settings')$('[data-app-style="'+style+'"]')?.focus({preventScroll:true});
     startFrame();
   }
@@ -310,24 +325,27 @@
     if(!isGlass())return;
     const consume=()=>{e.preventDefault();e.stopImmediatePropagation();};
     if(b.dataset.lgRoute){
-      consume();view='browser';ensureShell().dataset.view=view;
+      consume();
+      if(b.dataset.lgRoute==='create'){openPlaylistDialog();return;}
+      window.spinPersistNavigation?.();
+      view='browser';ensureShell().dataset.view=view;
       if(b.dataset.lgRoute==='online'){downloadTab='search';go('downloads');}
       else if(b.dataset.lgRoute==='downloads'){downloadTab='active';go('downloads');}
       else go(b.dataset.lgRoute);return;
     }
     if(b.id==='lgPalette'){consume();setTheme(['dark','light','black'][(['dark','light','black'].indexOf(theme)+1)%3]);return;}
-    if(b.id==='lgOpenPlayer'){consume();setView('player');return;}
+    if(b.id==='lgOpenPlayer'){consume();window.spinPersistNavigation?.();setView('player');return;}
     if(b.id==='lgClosePlayer'){consume();setView('browser');return;}
     if(b.id==='lgMiniPlay'){consume();toggle();return;}
     if(b.id==='lgMiniNext'){consume();next();return;}
-    if(b.id==='lgLyricsBtn'||b.id==='glassOpenLyrics'){consume();openLyrics(current);return;}
-    if(b.id==='lgQueueBtn'){consume();rightTab='queue';panelOpen=true;setView('player');renderSidePanel();if(innerWidth<1100)$('#glassSidePanel').scrollIntoView({block:'nearest',behavior:motionAllowed()?'smooth':'auto'});return;}
-    if(b.id==='lgClosePanel'){consume();panelOpen=false;renderSidePanel();return;}
+    if(b.id==='lgLyricsBtn'||b.id==='glassOpenLyrics'){consume();if(b.id==='lgLyricsBtn'&&panelOpen&&rightTab==='lyrics')closeLyrics();else openLyrics(current);return;}
+    if(b.id==='lgQueueBtn'){consume();togglePanel('queue');return;}
+    if(b.id==='lgClosePanel'){consume();if(rightTab==='lyrics')closeLyrics();else togglePanel('queue');return;}
     if(b.dataset.glassPanel){consume();if(b.dataset.glassPanel==='lyrics')openLyrics(current);else{rightTab='queue';panelOpen=true;renderSidePanel();}return;}
   },true);
   document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelDrag();cancelMotions();if(animationFrame)cancelAnimationFrame(animationFrame);animationFrame=0;lastFrame=0;}else startFrame();});
   window.addEventListener('resize',()=>{if(isGlass()){cancelDrag();renderSidePanel();startFrame();}});
   if(typeof ResizeObserver==='function')new ResizeObserver(startFrame).observe($('#player'));
-  window.SpinAppStyle={get:()=>style,set:applyStyle,mediaFor,view:()=>view,showPlayer:()=>setView('player'),stop:()=>{cancelDrag();cancelMotions();if(animationFrame)cancelAnimationFrame(animationFrame);animationFrame=0;}};
+  window.SpinAppStyle={get:()=>style,set:applyStyle,mediaFor,view:()=>view,showPlayer:()=>setView('player'),showLibrary:()=>{if(isGlass())setView('browser');},stop:()=>{cancelDrag();cancelMotions();if(animationFrame)cancelAnimationFrame(animationFrame);animationFrame=0;}};
   body.dataset.appStyle=style;if(isGlass())ensureShell();renderMain();renderPlayer();
 })();

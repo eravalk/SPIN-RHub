@@ -53,9 +53,9 @@ laser.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Home',bubbles:true,cance
 run('position=45;updateProgress()');pointer('pointerdown',x,y);run('spinPlayback({id:101,position:12,duration:240,playing:true})');assert.equal(run('position'),12);assert.equal(run('needleDragging'),false);
 // Playlist cover must follow the playing queue, not merely a playlist being browsed.
 run("playlists=[{id:'p1',name:'Мой плейлист',ids:[101,102]}];window.activePlaylist='p1';page='playlist';playTrack(101)");
-assert(w.document.querySelector('.cd-case-title strong').textContent.includes('Мой плейлист'));
-run("page='settings';window.activePlaylist='other';renderPlayer()");assert(w.document.querySelector('.cd-case-title strong').textContent.includes('Мой плейлист'));
-run('queue=[101,103];renderPlayer()');assert.equal(w.document.querySelector('.cd-case-title strong').textContent,'Ночная сторона');
+assert(w.document.querySelector('.cd-case-spine strong').textContent.includes('Мой плейлист'));
+run("page='settings';window.activePlaylist='other';renderPlayer()");assert(w.document.querySelector('.cd-case-spine strong').textContent.includes('Мой плейлист'));
+run('queue=[101,103];renderPlayer()');assert.equal(w.document.querySelector('.cd-case-spine strong').textContent,'Ночная сторона');
 Object.defineProperty(w,'innerWidth',{value:1400,writable:true});w.dispatchEvent(new w.Event('resize'));
 click('[data-glass-panel="lyrics"]');assert(w.document.querySelector('#glassPanelBody #persistentLyrics'));
 click('[data-glass-panel="queue"]');assert(w.document.querySelector('#lgLyricStash #persistentLyrics'),'Keep lyric DOM when switching to queue');
