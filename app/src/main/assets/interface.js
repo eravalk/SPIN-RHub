@@ -24,8 +24,12 @@ const previousGo04=go;go=function(p){if(p==='search')onlineMode='local';previous
 const previousClose04=closeDialog;closeDialog=function(){previousClose04();if(innerWidth<1200)queueOpen=false};
 function serviceInfo04(){dialog('Подключение сервисов','<p>Поиск публичной музыки не требует аккаунта. Если YouTube или SoundCloud требуют вход для конкретной записи, эта запись пока недоступна: вход в аккаунт в SPIN ещё не реализован.</p><p>LRCLIB и lyrics.ovh используют публичные запросы. KuGou и QQ через Better Lyrics при последней проверке требовали ключ доступа (HTTP 401). Кнопка входа в аккаунт эту ошибку не исправит.</p><p>Для текста можно выбрать другой источник, загрузить TXT/LRC или вставить слова вручную.</p>')}
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;let handled=true;
- if(d.homeTab){go(d.homeTab==='music'?'library':'search')}
- else if(d.downloadTab){downloadTab=d.downloadTab;renderMain()}
+ if(d.vinylAction==='create'){openPlaylistDialog()}
+ else if(d.vinylAction==='online'||d.vinylAction==='downloads'){
+  downloadTab=d.vinylAction==='online'?'search':'active';go('downloads')
+ }
+ else if(d.homeTab){go(d.homeTab==='music'?'library':'search')}
+ else if(d.downloadTab){downloadTab=d.downloadTab;nav();renderMain()}
  else if(b.id==='savePlaylistTracks'){const p=playlists.find(p=>p.id===window.activePlaylist);if(p){const old=p.ids.slice();p.ids=$$('input[name=playlistTrack]:checked').map(i=>Number(i.value));persist();closeDialog();renderMain();undo04('Плейлист изменён',()=>{p.ids=old;persist();renderMain()})}}
  else if(d.pickplaylist){const p=playlists.find(p=>p.id===d.pickplaylist);if(p){const old=p.ids.slice();if(!p.ids.includes(window.addPlaylistTrack))p.ids.push(window.addPlaylistTrack);persist();closeDialog();undo04('Добавлено в плейлист',()=>{p.ids=old;persist();renderMain()})}}
  else if(d.next04||d.queue04){const id=Number(d.next04||d.queue04);if(queue.includes(id))queue.splice(queue.indexOf(id),1);if(d.next04)queue.splice(Math.max(0,queue.indexOf(current)+1),0,id);else queue.push(id);syncQueue04();closeDialog();toast(d.next04?'Будет следующим':'Добавлено в очередь')}

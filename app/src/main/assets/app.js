@@ -20,7 +20,29 @@ function toast(msg){$('#toast').textContent=msg;$('#toast').classList.add('show'
 const fmt=n=>`${Math.floor((n||0)/60)}:${String(Math.floor((n||0)%60)).padStart(2,'0')}`;
 const currentTrack=()=>tracks.find(t=>t.id===current)||tracks[0]||{id:-1,name:'Выбери музыку',artist:'SPIN Player',duration:0,cover:'app-cover.svg'};
 function setTheme(t){theme=t;document.body.dataset.theme=t;persist();if(page==='settings')renderMain()}
-function nav(){const items=[['library','music','Библиотека'],['downloads','download','Загрузки'],['favorites','heart','Избранное'],['playlists','queue','Плейлисты']];$('#nav').innerHTML=items.map(([p,i,t])=>`<button class="nav-btn ${page===p?'active':''}" data-page="${p}">${icon(i)}<span>${t}</span></button>`).join('');$('#bottomNav').innerHTML=[...items.slice(0,2),['settings','settings','Настройки']].map(([p,i,t])=>`<button class="nav-btn ${page===p?'active':''}" data-page="${p}">${icon(i)}<span>${t}</span></button>`).join('')}
+function nav(){
+  const sidebar=[
+    ['library','music','Библиотека'],['downloads','download','Загрузки'],
+    ['favorites','heart','Избранное'],['playlists','queue','Плейлисты']
+  ];
+  $('#nav').innerHTML=sidebar.map(([route,glyph,title])=>
+    `<button class="nav-btn ${page===route?'active':''}" data-page="${route}">${icon(glyph)}<span>${title}</span></button>`
+  ).join('');
+  let active='library';
+  if(page==='settings')active='settings';
+  if(page==='downloads')active=typeof downloadTab!=='undefined'&&downloadTab==='search'?'online':'downloads';
+  const bottom=[
+    ['library','music','Библиотека'],['online','search','Поиск'],
+    ['create','plus','Плейлист'],['downloads','download','Загрузки'],
+    ['settings','settings','Настройки']
+  ];
+  $('#bottomNav').innerHTML=bottom.map(([route,glyph,title])=>{
+    const action=route==='library'||route==='settings'?`data-page="${route}"`:`data-vinyl-action="${route}"`;
+    const selected=route===active;
+    const label=route==='create'?'Создать плейлист':title;
+    return `<button type="button" class="nav-btn ${selected?'active':''}" ${action} aria-label="${label}"${selected?' aria-current="page"':''}>${icon(glyph)}<span>${title}</span></button>`;
+  }).join('');
+}
 function go(p){page=p;document.body.classList.remove('cover-playing');nav();renderMain();renderPlayer()}
 function row(t,number=false){return `<div class="track ${current===t.id?'active':''}">${number?`<span class="num">${current===t.id&&playing?'▥':String(t.number||t.id+1).padStart(2,'0')}</span>`:`<img src="${esc(t.cover)}" alt="">`}<div class="track-info" data-play="${t.id}" role="button" tabindex="0"><b>${esc(t.name)}</b><small>${esc(t.artist)}${t.url?' · На устройстве':''}</small></div><span class="duration">${fmt(t.duration)}</span><button class="icon-btn ${favorites.has(t.id)?'liked':''}" data-fav="${t.id}" aria-label="В избранное">${icon('heart')}</button><button class="icon-btn" data-menu="${t.id}" aria-label="Действия с треком">${icon('more')}</button></div>`}
 function albumCard(a){return `<button class="album-tile" data-album="${a.id}"><div class="album-art"><img src="${a.cover}" alt="Обложка альбома ${esc(a.name)}"><span class="badge">${a.tracks.length} ТРЕКОВ</span></div><h3>${esc(a.name)}</h3><p>${esc(a.artist)} · ${a.year}</p></button>`}

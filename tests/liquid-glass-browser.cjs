@@ -100,6 +100,25 @@ const report=[];
    const offset=await page.evaluate(()=>window.fixtureCalls.length);
    await page.locator('[data-app-style="vinyl"]').click();
    assert.equal(await page.locator('#glassShell').count(),0);assert(await page.locator('#app').isVisible());
+   if(width<600){
+    const buttons=page.locator('#bottomNav button');
+    const boxes=await buttons.evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().toJSON()));
+    assert.equal(boxes.length,5);
+    assert(boxes.every((b,i)=>b.width>=44&&b.left>=0&&b.right<=width&&b.bottom<=height&&(!i||b.left>=boxes[i-1].right-1)));
+    await page.locator('#bottomNav').getByRole('button',{name:'Поиск',exact:true}).click();
+    assert(await page.locator('#onlineQuery').isVisible());
+    assert.equal(await page.locator('#bottomNav [aria-current=page]').innerText(),'Поиск');
+    await page.locator('#bottomNav').getByRole('button',{name:'Создать плейлист'}).click();
+    assert(await page.locator('#playlistName').isVisible());
+    assert.equal(await page.locator('#bottomNav [aria-current=page]').innerText(),'Поиск');
+    await page.locator('#playlistName').fill('Винил тест');
+    await page.locator('#savePlaylist').click();
+    assert.equal(await page.evaluate(()=>playlists.at(-1).name),'Винил тест');
+    assert.equal(await page.locator('#bottomNav [aria-current=page]').innerText(),'Библиотека');
+    await page.locator('#bottomNav').getByRole('button',{name:'Загрузки'}).click();
+    assert.equal(await page.evaluate(()=>downloadTab),'active');
+    await page.locator('#bottomNav').getByRole('button',{name:'Настройки'}).click();
+   }
    await page.locator('[data-app-style="liquid-glass"]').click();
    const after=await page.evaluate(()=>({current,position,queue:queue.slice(),playing,theme}));assert.deepEqual(after,before);
    const audioCalls=await page.evaluate(offset=>window.fixtureCalls.slice(offset).filter(c=>['play','command','seek','replaceQueue'].includes(c[0])),offset);assert.equal(audioCalls.length,0,'Style switch must not touch audio');
