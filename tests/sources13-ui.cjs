@@ -1,0 +1,44 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const {JSDOM}=require(process.env.SPIN_TEST_MODULES+'/jsdom');
+const root=path.resolve(__dirname,'../app/src/main/assets');
+const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+const dom=new JSDOM(html,{url:'https://spin.local/',runScripts:'outside-only',pretendToBeVisual:true});
+const w=dom.window,calls=[],ctx=dom.getInternalVMContext();
+w.matchMedia=()=>({matches:false,addEventListener(){},removeEventListener(){}});
+w.requestAnimationFrame=()=>1;w.cancelAnimationFrame=()=>{};w.setInterval=()=>1;w.setTimeout=()=>1;
+w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
+w.HTMLElement.prototype.scrollIntoView=function(){};
+w.HTMLElement.prototype.animate=function(){return {cancel(){},finished:Promise.resolve()}};
+w.HTMLCanvasElement.prototype.getContext=()=>({drawImage(){},getImageData(){return {data:new Uint8ClampedArray(400)}},createImageData(width,height){return {data:new Uint8ClampedArray(width*height*4)}},putImageData(){},save(){},restore(){},clearRect(){},fillRect(){},beginPath(){},arc(){},fill(){},stroke(){},moveTo(){},lineTo(){},createLinearGradient(){return {addColorStop(){}}}});
+w.HTMLCanvasElement.prototype.toDataURL=()=> 'data:image/png;base64,AA==';
+w.SpinNative=new Proxy({library:()=>'[]',folders:()=>'[]',vinyl:()=>'{}',lyrics:()=>'{}',equalizer:()=>'[]',equalizerEnabled:()=>false,consumeLaunch:()=>false,spectrum:()=>'[]',activationState:()=>' {"active":true,"code":"10AB"}'},{get:(o,k)=>o[k]||((...args)=>calls.push([k,...args]))});
+w.localStorage.setItem('spinIntroSeen','true');
+for(const match of html.matchAll(/<script src="([^"]+)"/g))vm.runInContext(fs.readFileSync(path.join(root,match[1]),'utf8'),ctx,{filename:match[1]});
+function run(source){return vm.runInContext(source,ctx);}
+function click(selector){const el=w.document.querySelector(selector);assert(el,'Missing '+selector);el.click();}
+run("go('downloads');downloadTab='search';renderMain()");
+assert.deepEqual([...w.document.querySelectorAll('#source04 option')].map(o=>o.textContent),['YouTube','YouTube Music','Spotify','Яндекс Музыка','SoundCloud']);
+function source(name){const input=w.document.querySelector('#source04');input.value=name;input.dispatchEvent(new w.Event('change',{bubbles:true}));}
+source('Яндекс Музыка');
+w.document.querySelector('#onlineQuery').value='Example';click('#onlineSearch');
+assert.deepEqual(calls.filter(x=>x[0]==='onlineSearch').at(-1).slice(2),['Example','Яндекс Музыка']);
+run('onlineBusy=false');click('[data-search-kind="albums"]');
+w.document.querySelector('#onlineQuery').value='Example album';click('#onlineSearch');
+assert.equal(calls.filter(x=>x[0]==='onlineSearch').at(-1)[3],'Яндекс Музыка:albums');
+run("onlineBusy=false;go('settings')");assert([...w.document.querySelectorAll('h3')].some(h=>h.textContent==='SPIN RHub · '+w.SPIN_VERSION));click('[data-connect13="yandex"]');assert.equal(calls.at(-1)[0],'connectMusicService');
+run("spinMusicConnections({yandex:true,spotify:false})");assert(w.document.querySelector('[data-disconnect13="yandex"]'));
+run("go('downloads');downloadTab='search';renderMain()");source('Spotify');
+w.document.querySelector('#onlineQuery').value='https://open.spotify.com/album/1234567890abcdefghijkl';click('#onlineSearch');
+assert.equal(calls.filter(x=>x[0]==='onlinePlaylist').at(-1)[2],'https://open.spotify.com/album/1234567890abcdefghijkl');
+run('onlineBusy=false');w.document.querySelector('#onlineQuery').value='https://open.spotify.com/track/1234567890abcdefghijkl';click('#onlineSearch');
+assert.equal(calls.filter(x=>x[0]==='spotifyMatches').at(-1)[2],'https://open.spotify.com/track/1234567890abcdefghijkl');
+const request=run('onlineToken');
+run('spinSpotifyMatches('+JSON.stringify({requestId:request,track:{name:'Example song',artist:'Example artist',duration:201,url:'https://open.spotify.com/track/1234567890abcdefghijkl'},items:[{name:'Example song',artist:'Example artist',duration:202,url:'https://www.youtube.com/watch?v=abcdefghijk',matchScore:1}]})+')');
+assert(w.document.querySelector('[data-match-preview13="0"]'));click('[data-match-preview13="0"]');assert.equal(calls.at(-1)[0],'previewOnline');
+click('[data-match-choose13="0"]');assert.equal(calls.at(-1)[0],'onlineResolve');
+const resolvedRequest=run('onlineToken');
+run('spinOnlineResolved('+JSON.stringify({requestId:resolvedRequest,item:{name:'YouTube title',artist:'YouTube artist',url:'https://www.youtube.com/watch?v=abcdefghijk',duration:202,formats:[{key:'best',label:'Best'}]}})+')');
+assert.equal(run('onlineResolved.name'),'Example song');assert(run('onlineResolved.catalogUrl').startsWith('https://open.spotify.com/'));assert(run('onlineResolved.url').startsWith('https://www.youtube.com/'));
+click('#onlineDownload');const job=JSON.parse(calls.filter(x=>x[0]==='download').at(-1)[1]);assert.equal(job.name,'Example song');assert(job.catalogUrl);assert(job.audioSourceUrl);
+console.log('PASS: full JS initialization, five sources, Yandex search/albums/connect, Spotify collection/matching/preview/download with original metadata');
+w.close();

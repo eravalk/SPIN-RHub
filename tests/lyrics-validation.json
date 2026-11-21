@@ -1,0 +1,30 @@
+{
+  "version": "0.3.1-alpha",
+  "fixture_tests": "passed",
+  "ui_mock_bridge": "passed",
+  "native_android_launch": false,
+  "live_probe": {
+    "LRCLIB": {
+      "status": 502,
+      "success": false
+    },
+    "lyrics.ovh": {
+      "status": 200,
+      "json": true,
+      "has_plain_lyrics": true
+    }
+  },
+  "checks": [
+    "exact",
+    "search",
+    "normalization",
+    "edition_rejection",
+    "duration_mismatch",
+    "plain_fallback",
+    "rate_limit",
+    "missing_metadata",
+    "synced_preference",
+    "manual_selection",
+    "manual_refresh"
+  ]
+}

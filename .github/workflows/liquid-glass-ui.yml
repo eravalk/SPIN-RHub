@@ -1,0 +1,34 @@
+name: Liquid Glass browser checks
+on:
+  push:
+    branches: ['theme/liquid-glass']
+  pull_request:
+    branches: ['main']
+permissions:
+  contents: read
+concurrency:
+  group: glass-ui-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/liquid-glass-browser.cjs
+      - run: node tests/app-style-ui.cjs
+        env:
+          SPIN_TEST_MODULES: ${{ github.workspace }}/node_modules
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: liquid-glass-ui
+          path: build/glass-ui
+          retention-days: 14

@@ -1,0 +1,10 @@
+package com.spinplayer.app;
+import java.net.*;import java.io.*;import java.util.*;import com.grack.nanojson.*;
+/** Flat playlist contract from yt-dlp; preserves source order and excludes unusable entries. */
+public final class AlbumManifest {
+ public String title,cover="";public final List<Entry> entries=new ArrayList<>();
+ public static final class Entry {public String url,title,artist,cover="";public long duration;}
+ public static String allowed(String raw)throws Exception{URI u=new URI(raw);String host=u.getHost();if(!"https".equalsIgnoreCase(u.getScheme())||host==null||u.getUserInfo()!=null)throw new IOException("AlbumSourceUnsupported");host=host.toLowerCase(Locale.ROOT);if(!(host.equals("youtube.com")||host.endsWith(".youtube.com")||host.equals("youtu.be")||host.equals("soundcloud.com")||host.endsWith(".soundcloud.com")))throw new IOException("AlbumSourceUnsupported");return raw;}
+ static String cover(JsonObject data){JsonArray thumbs=data.getArray("thumbnails");if(thumbs!=null)for(int i=thumbs.size()-1;i>=0;i--){JsonObject t=thumbs.getObject(i);if(t!=null&&t.getString("url","").startsWith("https://"))return t.getString("url");}return "";}
+ public static AlbumManifest parse(String raw)throws Exception{JsonObject data=JsonParser.object().from(raw);AlbumManifest result=new AlbumManifest();result.title=data.getString("title","Альбом");result.cover=cover(data);JsonArray tracks=data.getArray("entries");if(tracks!=null)for(int i=0;i<tracks.size()&&result.entries.size()<100;i++){JsonObject t=tracks.getObject(i);if(t==null)continue;String link=t.getString("url",t.getString("webpage_url",""));if(link.matches("[A-Za-z0-9_-]{11}"))link="https://www.youtube.com/watch?v="+link;try{allowed(link);}catch(Exception ignored){continue;}Entry entry=new Entry();entry.url=link;entry.title=t.getString("title","Трек "+(i+1));entry.artist=t.getString("artist",t.getString("uploader",""));entry.duration=t.getLong("duration",0);entry.cover=cover(t);result.entries.add(entry);}if(result.entries.isEmpty())throw new IOException("AlbumEmpty");return result;}
+}

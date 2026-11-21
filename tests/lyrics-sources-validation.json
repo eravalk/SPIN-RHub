@@ -1,0 +1,16 @@
+{
+  "version": "0.3.4-alpha",
+  "jvm_fixture_tests_passed": true,
+  "ui_mock_bridge_passed": true,
+  "native_android_device_tested": false,
+  "live_probes": {
+    "KuGou via Better Lyrics": 403,
+    "QQ via Better Lyrics": 403
+  },
+  "shared_gateway": true,
+  "notes": [
+    "New providers require manual confirmation of matches.",
+    "No production lyrics stored in fixtures.",
+    "Availability on Fold has not been verified."
+  ]
+}

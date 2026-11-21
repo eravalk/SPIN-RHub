@@ -1,0 +1,223 @@
+package com.spinplayer.app;
+import android.app.*;import android.os.*;import android.content.*;import android.net.Uri;import android.webkit.*;import android.database.Cursor;import android.provider.OpenableColumns;import android.media.MediaMetadataRetriever;import org.json.*;import java.io.*;import java.util.*;import java.util.concurrent.*;
+public class MainActivity extends Activity {
+ ValueCallback<Uri[]> fileCallback; WebView web;final Handler main=new Handler(Looper.getMainLooper());final ExecutorService worker=Executors.newSingleThreadExecutor();volatile boolean alive=true;int pendingLyricsId=-1,pendingCoverId=-1;volatile byte[] pendingCover;String diagnosticSnapshot="";final ExecutorService lyricsWorker=Executors.newSingleThreadExecutor();final ExecutorService lyricFiles=Executors.newSingleThreadExecutor();final ExecutorService lyricNetwork=Executors.newFixedThreadPool(4);final java.util.concurrent.atomic.AtomicLong lyricEpoch=new java.util.concurrent.atomic.AtomicLong();Future<?> lyricTask;
+ private static boolean launchPending=true;
+ final ExecutorService catalogWorker=Executors.newFixedThreadPool(2);
+ MusicConnections musicConnections;
+ @Override public void onCreate(Bundle b){super.onCreate(b);musicConnections=new MusicConnections(this);web=new WebView(this);android.widget.FrameLayout viewport=new android.widget.FrameLayout(this);viewport.setBackgroundColor(0xff07152a);viewport.addView(web,new android.widget.FrameLayout.LayoutParams(-1,-1));setContentView(viewport);web.setBackgroundColor(0xff171416);web.setPadding(0,0,0,0);
+ viewport.setOnApplyWindowInsetsListener((v,insets)->{android.graphics.Insets safe=insets.getInsets(android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout());android.widget.FrameLayout.LayoutParams params=(android.widget.FrameLayout.LayoutParams)web.getLayoutParams();if(params.leftMargin!=safe.left||params.topMargin!=safe.top||params.rightMargin!=safe.right||params.bottomMargin!=safe.bottom){params.setMargins(safe.left,safe.top,safe.right,safe.bottom);web.setLayoutParams(params);}return insets;});viewport.requestApplyInsets();
+ WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMediaPlaybackRequiresUserGesture(true);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);web.addJavascriptInterface(new Bridge(),"SpinNative");
+ web.setWebViewClient(new WebViewClient(){@Override public boolean shouldOverrideUrlLoading(WebView v,WebResourceRequest r){return true;}@Override public WebResourceResponse shouldInterceptRequest(WebView v,WebResourceRequest req){Uri u=req.getUrl();if(!"spin.local".equals(u.getHost()))return new WebResourceResponse("text/plain","UTF-8",new ByteArrayInputStream(new byte[0]));String path=u.getPath();if("/thumb".equals(path))return onlineThumb(u.getQueryParameter("url"));if(path==null||path.contains(".."))return null;try{String file=path.equals("/")?"index.html":path.substring(1);String mime=file.endsWith(".js")?"application/javascript":file.endsWith(".css")?"text/css":file.endsWith(".jpg")?"image/jpeg":file.endsWith(".png")?"image/png":file.endsWith(".svg")?"image/svg+xml":"text/html";InputStream data=file.startsWith("art/")?new FileInputStream(new File(getFilesDir(),file)):getAssets().open(file);return new WebResourceResponse(mime,"UTF-8",data);}catch(Exception e){return new WebResourceResponse("text/plain","UTF-8",404,"Not found",null,new ByteArrayInputStream(new byte[0]));}}});
+ web.setWebChromeClient(new WebChromeClient(){@Override public boolean onConsoleMessage(ConsoleMessage message){if(message.messageLevel()==ConsoleMessage.MessageLevel.ERROR){String source;try{source=new java.net.URI(message.sourceId()).getPath();}catch(Exception e){source="unknown";}String m=message.message();String kind=m.contains("not a function")?"not_a_function":m.contains("null")?"null_reference":m.contains("undefined")?"undefined_reference":"console_error";AppDiagnostics.log(MainActivity.this,"WEBVIEW_ERROR file="+source+" line="+message.lineNumber()+" kind="+kind);}return false;}@Override public boolean onShowFileChooser(WebView v,ValueCallback<Uri[]> callback,FileChooserParams params){if(fileCallback!=null)fileCallback.onReceiveValue(null);fileCallback=callback;Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivityForResult(i,11);return true;}}); web.loadUrl("https://spin.local/");if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS},1);main.postDelayed(ticker,600);
+ }
+ final Runnable ticker=new Runnable(){public void run(){if(!alive)return;try{PlaybackService p=PlaybackService.instance;if(p!=null)send("spinPlayback",p.state());}catch(Exception ignored){}main.postDelayed(this,500);}};
+ void send(String fn,Object value){main.post(()->{if(alive)web.evaluateJavascript("window."+fn+" && window."+fn+"("+value+")",null);});}
+ void service(String action,String payload){Intent i=new Intent(this,PlaybackService.class).setAction(action);i.putExtra("payload",payload);if(action.equals("play")||action.equals("toggle"))startForegroundService(i);else if(PlaybackService.instance!=null)startService(i);}
+ private final java.util.concurrent.atomic.AtomicBoolean checkingUpdate = new java.util.concurrent.atomic.AtomicBoolean();
+ private final ExecutorService updateWorker = Executors.newSingleThreadExecutor();
+ private final java.util.concurrent.atomic.AtomicBoolean updatePolling = new java.util.concurrent.atomic.AtomicBoolean();
+ private final Runnable updateTicker = new Runnable() { public void run() {
+  if (!alive) return;
+  if (updatePolling.compareAndSet(false, true)) updateWorker.execute(() -> {
+   try { send("spinAppDownload", AppUpdateDownload.state(MainActivity.this)); }
+   catch (Exception e) { send("spinAppDownload", updateFailure("Не удалось прочитать состояние обновления")); }
+   finally { updatePolling.set(false); }
+  });
+  main.postDelayed(this, 1000);
+ }};
+ JSONObject updateFailure(String message) {
+  JSONObject result = new JSONObject();
+  try { result.put("status", "failed").put("message", message); } catch (JSONException ignored) {}
+  return result;
+ }
+ @Override protected void onResume() { super.onResume(); main.removeCallbacks(updateTicker); main.post(updateTicker); }
+ @Override protected void onPause() {
+  main.removeCallbacks(updateTicker);
+  if (web != null) web.evaluateJavascript("window.spinPersistNavigation && window.spinPersistNavigation()", null);
+  super.onPause();
+ }
+ public class Bridge {
+  @JavascriptInterface public void musicConnectionStatus(){musicConnections.status();}
+  @JavascriptInterface public void connectMusicService(String service){musicConnections.connect(service);}
+  @JavascriptInterface public void disconnectMusicService(String service){musicConnections.disconnect(service);}
+  @JavascriptInterface public void spotifyMatches(String request,String url){catalogWorker.execute(()->{try{JSONObject track=new SpotifyCatalog(musicConnections).metadata(url);send("spinSpotifyMatches",new JSONObject().put("requestId",request).put("track",track).put("items",SpotifyCatalog.candidates(MainActivity.this,track,catalogEvents())));}catch(Exception e){onlineError(request,e);}});}
+
+  @JavascriptInterface public void downloadAppUpdate() {
+   updateWorker.execute(() -> {
+    try {
+     String installed = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+     JSONObject release = ReleaseUpdates.check(installed);
+     if (!"available".equals(release.optString("status"))) { send("spinUpdateResult", release); return; }
+     send("spinAppDownload", AppUpdateDownload.start(MainActivity.this, release));
+    } catch (Exception e) { send("spinAppDownload", updateFailure("Не удалось начать загрузку. Проверь подключение и попробуй снова.")); }
+   });
+  }
+  @JavascriptInterface public void cancelAppUpdate() {
+   updateWorker.execute(() -> {
+    try {
+     AppUpdateDownload.cancel(MainActivity.this);
+     send("spinAppDownloadCancelled", true);
+    } catch (Exception e) {
+     send("spinAppDownloadCancelled", false);
+    }
+   });
+  }
+  @JavascriptInterface public void installAppUpdate() {
+   updateWorker.execute(() -> {
+    try {
+     Uri uri = AppUpdateDownload.installUri(MainActivity.this);
+     main.post(() -> {
+      if (!alive) return;
+      try {
+       if (!getPackageManager().canRequestPackageInstalls()) {
+        send("spinToast", JSONObject.quote("Разреши установку обновлений для SPIN RHub, затем нажми «Установить» ещё раз."));
+        startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:" + getPackageName())));
+        return;
+       }
+       Intent intent = new Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+               .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+       intent.setClipData(ClipData.newRawUri("SPIN RHub update", uri));
+       startActivity(intent);
+      } catch (Exception e) { send("spinToast", JSONObject.quote("Не удалось открыть установщик Android.")); }
+     });
+    } catch (Exception e) { send("spinAppDownload", updateFailure("Обновление не готово или не прошло проверку. Скачай его повторно.")); }
+   });
+  }
+  @JavascriptInterface public void checkAppUpdate() {
+   if (!checkingUpdate.compareAndSet(false, true)) return;
+   new Thread(() -> {
+    JSONObject result;
+    try {
+     String version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+     result = ReleaseUpdates.check(version);
+    } catch (Exception e) {
+     result = new JSONObject();
+     try { result.put("status", "error"); } catch (JSONException ignored) {}
+    } finally {
+     checkingUpdate.set(false);
+    }
+    send("spinUpdateResult", result);
+   }, "release-check").start();
+  }
+  @JavascriptInterface public void openAppRelease() { openUpdatePage(ReleaseUpdates.PAGE); }
+  @JavascriptInterface public void openAppRepository() { openUpdatePage(ReleaseUpdates.REPOSITORY_PAGE); }
+
+  private void openUpdatePage(String url) {
+   main.post(() -> {
+    if (!alive) return;
+    try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
+    catch (ActivityNotFoundException e) { send("spinToast", JSONObject.quote("Не удалось открыть браузер")); }
+   });
+  }
+
+ @JavascriptInterface public void onlineSearch(String requestId,String query,String source){catalogWorker.execute(()->{try{JSONObject result=new JSONObject().put("requestId",requestId).put("items",searchCatalog(query,source));send("spinOnlineResults",result);}catch(Exception e){onlineError(requestId,e);}});}
+ @JavascriptInterface public void onlineResolve(String requestId,String url){catalogWorker.execute(()->{try{send("spinOnlineResolved",new JSONObject().put("requestId",requestId).put("item",engineResolve(url)));}catch(Exception e){onlineError(requestId,e);}});}
+ @JavascriptInterface public void onlinePlaylist(String requestId,String url){catalogWorker.execute(()->{try{send("spinOnlinePlaylist",new JSONObject().put("requestId",requestId).put("playlist",enginePlaylist(url)));}catch(Exception e){onlineError(requestId,e);}});}
+ @JavascriptInterface public void resumeDownloads(){main.post(()->startForegroundService(new Intent(MainActivity.this,DownloadService.class)));}
+ @JavascriptInterface public void download(String json){worker.execute(()->{try{send("spinDownloadsChanged",OnlineDownloads.enqueue(MainActivity.this,json));send("spinToast",JSONObject.quote("Загрузка добавлена в очередь"));}catch(Exception e){send("spinDownloadsChanged",OnlineDownloads.failure(MainActivity.this,json,safeError(e)));send("spinToast",JSONObject.quote("Не удалось добавить загрузку: "+safeError(e)));}});}
+ @JavascriptInterface public void downloads(){worker.execute(()->{send("spinDownloadsChanged",OnlineDownloads.state(MainActivity.this));send("spinLibraryRefresh",MusicLibrary.load(MainActivity.this));});}
+ @JavascriptInterface public void cancelDownload(String id){worker.execute(()->send("spinDownloadsChanged",OnlineDownloads.cancel(MainActivity.this,Long.parseLong(id))));}
+ @JavascriptInterface public void wifiOnly(boolean enabled){getSharedPreferences("spin",0).edit().putBoolean("wifiOnly",enabled).apply();}
+ @JavascriptInterface public String vinyl(int id){return getSharedPreferences("spin",0).getString("vinyl:"+id,"{}");}
+ @JavascriptInterface public void setVinyl(int id,String json){try{new JSONObject(json);getSharedPreferences("spin",0).edit().putString("vinyl:"+id,json).apply();SpinWidget.refresh(MainActivity.this);}catch(Exception ignored){}}
+ @JavascriptInterface public void saveVinylTexture(int id,String encoded){if(encoded.length()>2500000)return;worker.execute(()->{try{byte[] bytes=android.util.Base64.decode(encoded.substring(encoded.indexOf(',')+1),android.util.Base64.DEFAULT);File dir=new File(getFilesDir(),"vinyl");dir.mkdirs();try(FileOutputStream out=new FileOutputStream(new File(dir,id+".png"))){out.write(bytes);}SpinWidget.refresh(MainActivity.this);}catch(Exception ignored){}});}
+ @JavascriptInterface public void widgetStyle(String color,int opacity){try{android.graphics.Color.parseColor(color);getSharedPreferences("spin",0).edit().putString("widgetAccent",color).putInt("widgetOpacity",Math.max(20,Math.min(100,opacity))).apply();SpinWidget.refresh(MainActivity.this);}catch(Exception ignored){}}
+ @JavascriptInterface public void hideHistory(String id,boolean hide){worker.execute(()->{synchronized(OnlineDownloads.class){try{JSONArray a=OnlineDownloads.load(MainActivity.this);for(int i=0;i<a.length();i++){JSONObject j=a.getJSONObject(i);if(String.valueOf(j.optLong("id")).equals(id)&&j.optString("status").equals("done"))j.put("historyHidden",hide);}OnlineDownloads.save(MainActivity.this,a);send("spinDownloadsChanged",a);}catch(Exception e){send("spinToast",JSONObject.quote("Не удалось изменить историю"));}}});}
+ @JavascriptInterface public void replaceQueue(String json){service("queue",json);}
+ @JavascriptInterface public void cacheInfo(){lyricFiles.execute(()->{try{send("spinCacheInfo",CacheStorage.measure(MainActivity.this));}catch(Exception e){send("spinToast",JSONObject.quote("Не удалось измерить кэш"));}});}
+ @JavascriptInterface public void clearSearchCache(){lyricFiles.execute(()->{try{CacheStorage.clean(MainActivity.this,true);send("spinCacheInfo",CacheStorage.measure(MainActivity.this));send("spinToast",JSONObject.quote("Очистка завершена"));}catch(Exception e){send("spinToast",JSONObject.quote("Не удалось очистить кэш"));}});}
+ @JavascriptInterface public String activationState(){android.content.SharedPreferences p=getSharedPreferences("spin",0);String code=p.getString("activationCode","");if(code.isEmpty()){code=String.format(java.util.Locale.ROOT,"%06X",new java.security.SecureRandom().nextInt(0xEFFFFF)+0x100000);p.edit().putString("activationCode",code).commit();}try{return new JSONObject().put("code",code).put("active",p.getBoolean("activated",false)).toString();}catch(Exception e){return "{}";}}
+ @JavascriptInterface public void copyActivationCode(){
+  main.post(()->{
+   try{
+    String code=new JSONObject(activationState()).getString("code");
+    android.content.ClipboardManager clipboard=getSystemService(android.content.ClipboardManager.class);
+    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("SPIN RHub",code));
+    send("spinCodeCopied",true);
+   }catch(Exception error){send("spinCodeCopied",false);}
+  });
+ }
+ @JavascriptInterface public boolean activate(String answer){try{JSONObject state=new JSONObject(activationState());boolean ok=answer.trim().matches("[0-9]{1,10}")&&Long.parseLong(answer.trim())==Long.parseLong(state.getString("code"),16);return ok&&getSharedPreferences("spin",0).edit().putBoolean("activated",true).commit();}catch(Exception e){return false;}}
+ @JavascriptInterface public String lyrics(int id){return getSharedPreferences("spin",0).getString("lyrics:"+id,"{}");}
+ @JavascriptInterface public void lyricsOffset(int id,int offset){try{JSONObject data=new JSONObject(lyrics(id));data.put("offset",Math.max(-30000,Math.min(30000,offset)));getSharedPreferences("spin",0).edit().putString("lyrics:"+id,data.toString()).apply();}catch(Exception ignored){}}
+ @JavascriptInterface public void importLyrics(int id){cancelLyrics();main.post(()->{pendingLyricsId=id;Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,12);});}
+ @JavascriptInterface public void findLyrics(int id,String json){startLyrics(id,json,true);}
+ @JavascriptInterface public void saveLyricsText(int id,String text){cancelLyrics();lyricFiles.execute(()->{try{saveLocalLyrics(id,LyricsText.validate(text),"Введённый текст");}catch(Exception e){sendLyricsSaveError(id,e);}});}
+ @JavascriptInterface public String lyricsQuery(int id){return getSharedPreferences("spin",0).getString("lyricsQuery:"+id,"{}");}
+ @JavascriptInterface public void searchLyrics(int id,String json){startLyrics(id,json,false);}
+ @JavascriptInterface public void selectLyrics(int id,String key){cancelLyrics();lyricFiles.execute(()->{try{List<LyricsProvider.Candidate> list=lyricCandidates.get(id);if(list==null)throw new IOException("Повтори поиск вариантов текста");for(LyricsProvider.Candidate c:list)if(c.key.equals(key)){saveLyricsChoice(id,c);return;}throw new IOException("Вариант больше не доступен");}catch(Exception e){send("spinToast",JSONObject.quote(safeError(e)));}});}
+ @JavascriptInterface public String folders(){return MusicFolders.roots(MainActivity.this).toString();}
+ @JavascriptInterface public void chooseFolder(){main.post(()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION|Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);startActivityForResult(i,13);});}
+ @JavascriptInterface public void scanFolders(){worker.execute(()->scanFoldersNow());}
+ @JavascriptInterface public void removeFolder(String uri){worker.execute(()->{try{synchronized(MusicLibrary.class){MusicFolders.remove(MainActivity.this,uri);}send("spinFoldersChanged",MusicFolders.roots(MainActivity.this));send("spinLibraryRefresh",MusicLibrary.load(MainActivity.this));}catch(Exception e){send("spinToast",JSONObject.quote(safeError(e)));}});}
+ @JavascriptInterface public String library(){return MusicLibrary.load(MainActivity.this).toString();}
+ @JavascriptInterface public void importAudio(){main.post(()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("audio/*").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,10);});}
+ @JavascriptInterface public void play(String json){service("play",json);}
+ @JavascriptInterface public void command(String action){if(Arrays.asList("toggle","pause","resume","next","prev","stop").contains(action))service(action,"");}
+ @JavascriptInterface public void seek(int ms){service("seek",String.valueOf(ms));}
+ @JavascriptInterface public void volume(float v){service("volume",String.valueOf(Math.max(0,Math.min(1,v))));}
+ @JavascriptInterface public void mode(boolean shuffle,boolean repeat){service("mode",shuffle+","+repeat);}
+ @JavascriptInterface public void playbackMode(boolean shuffle,int repeat){service("mode",shuffle+","+repeat);}
+ @JavascriptInterface public boolean equalizerEnabled(){return getSharedPreferences("spin",0).getBoolean("eqEnabled",false);}
+ @JavascriptInterface public void enableEqualizer(boolean enabled){getSharedPreferences("spin",0).edit().putBoolean("eqEnabled",enabled).apply();service("eqEnabled",String.valueOf(enabled));}
+ @JavascriptInterface public boolean consumeLaunch(){boolean show=launchPending;launchPending=false;return show;}
+ @JavascriptInterface public void sleep(int minutes){service("sleep",String.valueOf(Math.max(0,Math.min(180,minutes))));}
+ @JavascriptInterface public String equalizer(){return PlaybackService.instance==null?"[]":PlaybackService.instance.bands();}
+ @JavascriptInterface public void eq(int band,int gain){service("eq",band+","+gain);}
+ @JavascriptInterface public void saveCover(int id,String encoded){worker.execute(()->{try{if(encoded.length()>7000000)return;String raw=encoded.substring(encoded.indexOf(',')+1);byte[] bytes=android.util.Base64.decode(raw,android.util.Base64.DEFAULT);android.graphics.Bitmap image=android.graphics.BitmapFactory.decodeByteArray(bytes,0,bytes.length);if(image==null)return;int w=image.getWidth(),h=image.getHeight();float scale=Math.min(1f,800f/Math.max(w,h));android.graphics.Bitmap small=android.graphics.Bitmap.createScaledBitmap(image,Math.max(1,(int)(w*scale)),Math.max(1,(int)(h*scale)),true);File dir=new File(getFilesDir(),"art");dir.mkdirs();try(FileOutputStream out=new FileOutputStream(new File(dir,id+".jpg"))){small.compress(android.graphics.Bitmap.CompressFormat.JPEG,90,out);}JSONArray a=MusicLibrary.load(MainActivity.this);for(int j=0;j<a.length();j++)if(a.getJSONObject(j).optInt("id")==id)a.getJSONObject(j).put("cover","art/"+id+".jpg");MusicLibrary.save(MainActivity.this,a);send("spinLibraryChanged",a);}catch(Exception ignored){send("spinToast",JSONObject.quote("Не удалось сохранить обложку"));}});}
+ @JavascriptInterface public void searchCovers(int id,String request,String query){lyricNetwork.execute(()->{try{send("spinCoverResults",new JSONObject().put("id",id).put("request",request).put("items",OnlineExtractor.search(query,"YouTube Music")));}catch(Exception e){try{send("spinCoverResults",new JSONObject().put("id",id).put("request",request).put("error",safeError(e)));}catch(Exception ignored){}}});}
+ @JavascriptInterface public void stageCrop(int id,String encoded){worker.execute(()->{try{if(pendingCoverId!=id||encoded.length()>2500000)throw new IOException("Открой редактор заново");byte[] data=android.util.Base64.decode(encoded.substring(encoded.indexOf(',')+1),android.util.Base64.DEFAULT);android.graphics.BitmapFactory.Options bounds=new android.graphics.BitmapFactory.Options();bounds.inJustDecodeBounds=true;android.graphics.BitmapFactory.decodeByteArray(data,0,data.length,bounds);if(bounds.outWidth<=0||bounds.outWidth>1200||bounds.outHeight<=0||bounds.outHeight>1200)throw new IOException("Неверное изображение");android.graphics.Bitmap image=android.graphics.BitmapFactory.decodeByteArray(data,0,data.length);if(image==null||image.getWidth()>1200||image.getHeight()>1200)throw new IOException("Неверное изображение");ByteArrayOutputStream out=new ByteArrayOutputStream();image.compress(android.graphics.Bitmap.CompressFormat.JPEG,90,out);image.recycle();pendingCover=out.toByteArray();send("spinCropReady",new JSONObject().put("id",id));}catch(Exception e){send("spinEditorCoverError",JSONObject.quote(safeError(e)));}});}
+ @JavascriptInterface public String playingItem(){PlaybackService p=PlaybackService.instance;return p!=null&&p.track!=null&&p.track.optBoolean("online")?p.track.toString():"null";}
+ @JavascriptInterface public void visualStyle(String style,int density){getSharedPreferences("spin",0).edit().putString("visualStyle",style).putInt("visualDensity",Math.max(8,Math.min(96,density))).apply();}
+ @JavascriptInterface public String spectrum(){PlaybackService p=PlaybackService.instance;return p==null?"[]":p.spectrumJson();}
+ @JavascriptInterface public String waveform(){PlaybackService p=PlaybackService.instance;return p==null?"[]":p.waveJson();}
+ @JavascriptInterface public void visualizer(boolean enabled,boolean widgets){getSharedPreferences("spin",0).edit().putBoolean("waveEnabled",enabled).putBoolean("widgetWave",widgets).apply();main.post(()->{if(enabled&&checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO},42);else if(PlaybackService.instance!=null)PlaybackService.instance.setupVisualizer();SpinWidget.refresh(MainActivity.this);});}
+ @JavascriptInterface public void previewOnline(String request,String url){lyricNetwork.execute(()->{try{if(YandexCatalog.accepts(url)){previewYandex(request,url);return;}OnlineExtractor.validate(url);YtDlpEngine engine=onlineEngine();engine.init();JSONObject data=engine.info(url),selected=null;JSONArray formats=data.optJSONArray("formats");double best=-1;if(formats!=null)for(int i=0;i<formats.length();i++){JSONObject f=formats.optJSONObject(i);if(f==null||f.optBoolean("has_drm")||!"none".equals(f.optString("vcodec"))||"none".equals(f.optString("acodec")))continue;String protocol=f.optString("protocol");if(!protocol.equals("https")&&!protocol.equals("http"))continue;double rate=f.optDouble("abr",0);if(rate>=best&&f.optString("url").startsWith("https://")){selected=f;best=rate;}}if(selected==null)throw new IOException("Нет совместимого потока для прослушивания");JSONObject t=new JSONObject().put("id",-100000-Math.abs(url.hashCode()%900000000)).put("name",data.optString("track",data.optString("title"))).put("artist",data.optString("artist",data.optString("uploader"))).put("album","").put("uri",selected.getString("url")).put("duration",data.optDouble("duration")).put("online",true).put("headers",selected.optJSONObject("http_headers")!=null?selected.optJSONObject("http_headers"):data.optJSONObject("http_headers")).put("sourceUrl",url).put("cover","app-cover.svg");try{File cover=ArtworkCache.load(MainActivity.this,data.optString("thumbnail"));t.put("cover","art/"+cover.getName());}catch(Exception ignored){}send("spinPreviewReady",new JSONObject().put("request",request).put("track",t));}catch(Exception e){try{send("spinPreviewReady",new JSONObject().put("request",request).put("error",safeError(e)));}catch(Exception ignored){}}});}
+ @JavascriptInterface public void beginTrackEdit(int id){pendingCoverId=id;pendingCover=null;}
+ @JavascriptInterface public void chooseTrackCover(int id){main.post(()->{pendingCoverId=id;Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivityForResult(i,14);});}
+ @JavascriptInterface public void exportReport(){main.post(()->{diagnosticSnapshot=AppDiagnostics.snapshot(MainActivity.this);Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("text/plain").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,"SPIN-app-report-"+System.currentTimeMillis()+".txt");startActivityForResult(i,15);});}
+ @JavascriptInterface public void saveTrack(String json){worker.execute(()->saveEditedTrack(json));}
+
+ }
+ @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants){super.onRequestPermissionsResult(request,permissions,grants);if(request==42){boolean ok=grants.length>0&&grants[0]==android.content.pm.PackageManager.PERMISSION_GRANTED;if(ok&&PlaybackService.instance!=null)PlaybackService.instance.setupVisualizer();send("spinWavePermission",ok?"true":"false");}}
+ @Override protected void onActivityResult(int r,int result,Intent data){super.onActivityResult(r,result,data);if(r==15){if(result==RESULT_OK&&data!=null&&data.getData()!=null)try(OutputStream out=getContentResolver().openOutputStream(data.getData())){out.write(diagnosticSnapshot.getBytes(java.nio.charset.StandardCharsets.UTF_8));send("spinToast",JSONObject.quote("Отчёт сохранён. Прикрепи TXT в чат."));}catch(Exception e){send("spinToast",JSONObject.quote("Не удалось сохранить отчёт"));}return;}if(r==14){final int id=pendingCoverId;if(result==RESULT_OK&&data!=null&&data.getData()!=null){final Uri uri=data.getData();worker.execute(()->prepareEditorCover(uri,id));}else send("spinEditorCoverError",JSONObject.quote("Выбор обложки отменён"));return;}if(r==13){if(result==RESULT_OK&&data!=null&&data.getData()!=null){Uri tree=data.getData();worker.execute(()->{try{getContentResolver().takePersistableUriPermission(tree,Intent.FLAG_GRANT_READ_URI_PERMISSION);MusicFolders.add(this,tree);scanFoldersNow();}catch(Exception e){send("spinToast",JSONObject.quote("Не удалось подключить папку: "+safeError(e)));}});}return;}if(r==12){final int id=pendingLyricsId;if(result==RESULT_OK&&data!=null&&data.getData()!=null){Uri uri=data.getData();lyricFiles.execute(()->{try(InputStream input=getContentResolver().openInputStream(uri);ByteArrayOutputStream output=new ByteArrayOutputStream()){byte[] bytes=new byte[4096];int n;while((n=input.read(bytes))!=-1){if(output.size()+n>1024*1024)throw new IOException("Файл больше 1 МБ");output.write(bytes,0,n);}saveLocalLyrics(id,LyricsText.decode(output.toByteArray()),"Файл TXT / LRC");}catch(Exception e){sendLyricsSaveError(id,e);}});}return;}if(r==11){if(fileCallback!=null){fileCallback.onReceiveValue(result==RESULT_OK&&data!=null&&data.getData()!=null?new Uri[]{data.getData()}:null);fileCallback=null;}return;}if(r!=10||result!=RESULT_OK||data==null)return;List<Uri> uris=new ArrayList<>();if(data.getClipData()!=null)for(int i=0;i<data.getClipData().getItemCount();i++)uris.add(data.getClipData().getItemAt(i).getUri());else if(data.getData()!=null)uris.add(data.getData());send("spinToast",JSONObject.quote("Добавляю файлы и читаю теги…"));worker.execute(()->{synchronized(MusicLibrary.class){JSONArray list=MusicLibrary.load(this);Set<Integer> ids=new HashSet<>();for(int j=0;j<list.length();j++)ids.add(list.optJSONObject(j).optInt("id"));int added=0,failed=0;for(Uri u:uris){MediaMetadataRetriever m=new MediaMetadataRetriever();try{getContentResolver().takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION);int id=MusicLibrary.id(u.toString());boolean duplicate=ids.contains(id);for(int k=0;k<list.length()&&!duplicate;k++)duplicate=MusicFolders.identity(this,Uri.parse(list.optJSONObject(k).optString("uri"))).equals(MusicFolders.identity(this,u));if(duplicate)continue;String filename="Аудиофайл";try(Cursor cur=getContentResolver().query(u,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){if(cur!=null&&cur.moveToFirst())filename=cur.getString(0);}m.setDataSource(this,u);String title=value(m,MediaMetadataRetriever.METADATA_KEY_TITLE,filename.replaceFirst("\\.[^.]+$",""));String artist=value(m,MediaMetadataRetriever.METADATA_KEY_ARTIST,"Неизвестный исполнитель"),album=value(m,MediaMetadataRetriever.METADATA_KEY_ALBUM,"Без альбома");long duration=Long.parseLong(value(m,MediaMetadataRetriever.METADATA_KEY_DURATION,"0"));JSONObject t=new JSONObject().put("id",id).put("name",title).put("artist",artist).put("album",album).put("duration",duration/1000.0).put("number",value(m,MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER,"0").split("/")[0]).put("year",value(m,MediaMetadataRetriever.METADATA_KEY_YEAR,"")).put("albumArtist",value(m,MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST,"")).put("uri",u.toString()).put("native",true).put("cover","app-cover.svg");byte[] art=m.getEmbeddedPicture();if(art!=null&&art.length<5000000){File d=new File(getFilesDir(),"art");d.mkdirs();try(FileOutputStream out=new FileOutputStream(new File(d,id+".jpg"))){out.write(art);}t.put("cover","art/"+id+".jpg");}list.put(t);ids.add(id);added++;}catch(Exception e){failed++;}finally{try{m.release();}catch(Exception ignored){}}}MusicLibrary.save(this,list);send("spinLibraryChanged",list);send("spinToast",JSONObject.quote("Добавлено: "+added+(failed>0?". Не удалось прочитать: "+failed:"")));}});}
+ void saveEditedTrack(String json){try{JSONObject edit=new JSONObject(json);int id=edit.getInt("id");byte[] picture=pendingCoverId==id?pendingCover:null;JSONArray list=LibraryEditor.save(this,edit,picture);pendingCover=null;send("spinTrackSaved",new JSONObject().put("id",id).put("items",list));main.post(()->{PlaybackService p=PlaybackService.instance;if(p!=null){for(int i=0;i<p.queue.length();i++){JSONObject t=MusicLibrary.find(this,p.queue.optJSONObject(i).optInt("id"));if(t!=null)try{p.queue.put(i,t);}catch(Exception ignored){}}if(p.track!=null){JSONObject t=MusicLibrary.find(this,p.track.optInt("id"));if(t!=null)p.track=t;}p.publish();}});}catch(Exception e){try{send("spinTrackSaveError",new JSONObject().put("error",safeError(e)));}catch(Exception ignored){}}}
+ void prepareEditorCover(Uri uri,int id){try{byte[] data;try(InputStream in=getContentResolver().openInputStream(uri);ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){if(out.size()+n>5*1024*1024)throw new IOException("Обложка должна быть не больше 5 МБ");out.write(b,0,n);}data=out.toByteArray();}android.graphics.BitmapFactory.Options o=new android.graphics.BitmapFactory.Options();o.inJustDecodeBounds=true;android.graphics.BitmapFactory.decodeByteArray(data,0,data.length,o);if(o.outWidth<=0||o.outHeight<=0||o.outWidth>12000||o.outHeight>12000)throw new IOException("Не удалось прочитать изображение");o.inSampleSize=1;while(Math.max(o.outWidth,o.outHeight)/o.inSampleSize>900)o.inSampleSize*=2;o.inJustDecodeBounds=false;android.graphics.Bitmap bmp=android.graphics.BitmapFactory.decodeByteArray(data,0,data.length,o);if(bmp==null)throw new IOException("Не удалось открыть изображение");ByteArrayOutputStream out=new ByteArrayOutputStream();try{bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG,90,out);}finally{bmp.recycle();}if(pendingCoverId!=id)return;pendingCover=out.toByteArray();send("spinEditorCover",new JSONObject().put("id",id).put("cover","data:image/jpeg;base64,"+android.util.Base64.encodeToString(pendingCover,android.util.Base64.NO_WRAP)));}catch(Exception e){send("spinEditorCoverError",JSONObject.quote(safeError(e)));}}
+
+ synchronized void cancelLyrics(){lyricEpoch.incrementAndGet();if(lyricTask!=null)lyricTask.cancel(true);}
+ synchronized void startLyrics(int id,String json,boolean automatic){cancelLyrics();long epoch=lyricEpoch.get();lyricTask=lyricsWorker.submit(()->lookupLyrics(id,json,automatic,epoch));}
+ void sendLyricsSaveError(int id,Exception e){try{send("spinLyricsSaveError",new JSONObject().put("id",id).put("error",safeError(e)));}catch(Exception ignored){}}
+ void saveLocalLyrics(int id,String text,String source)throws Exception{JSONObject saved=new JSONObject().put("text",text).put("source",source).put("offset",0).put("synced",LyricsText.synced(text));if(!getSharedPreferences("spin",0).edit().putString("lyrics:"+id,saved.toString()).commit())throw new IOException("Не удалось сохранить текст");send("spinLyricsLoaded",new JSONObject().put("id",id).put("data",saved));}
+ LyricsProvider.Result searchSources(JSONObject t,boolean automatic)throws Exception{
+  String chosen=t.optString("lyricSource","all");List<String> sources=chosen.equals("all")?Arrays.asList("lrclib","ovh","kugou","qq"):Arrays.asList(chosen);
+  final String name=t.optString("name"),artist=t.optString("artist"),album=t.optString("album");final double duration=t.optDouble("duration",0);
+  return LyricsSearch.run(sources,lyricNetwork,source->LyricsProvider.find(name,artist,album,duration,new LyricsProvider.HttpFetcher(event->AppDiagnostics.log(this,event)),source,automatic),automatic,25000);
+ }
+ final Map<Integer,List<LyricsProvider.Candidate>> lyricCandidates=new ConcurrentHashMap<>();
+ JSONObject candidateJson(LyricsProvider.Candidate c)throws Exception{return new JSONObject().put("key",c.key).put("title",c.title).put("artist",c.artist).put("album",c.album).put("duration",c.duration).put("source",c.source).put("synced",c.synced).put("instrumental",c.instrumental).put("confident",c.confident);}
+ void saveLyricsChoice(int id,LyricsProvider.Candidate c)throws Exception{JSONObject old=new JSONObject(getSharedPreferences("spin",0).getString("lyrics:"+id,"{}"));JSONObject saved=candidateJson(c).put("text",c.text).put("offset",old.optInt("offset",0)).put("fetchedAt",System.currentTimeMillis());if(c.source.equals("LRCLIB"))saved.put("sourceUrl","https://lrclib.net/api/get/"+c.providerId);getSharedPreferences("spin",0).edit().putString("lyrics:"+id,saved.toString()).apply();AppDiagnostics.log(this,"LYRICS_CHOICE_SAVED id="+id+" synced="+c.synced+" source="+c.source);send("spinLyricsLoaded",new JSONObject().put("id",id).put("data",saved));}
+ void lookupLyrics(int id,String json,boolean automatic,long epoch){try{JSONObject old=new JSONObject(getSharedPreferences("spin",0).getString("lyrics:"+id,"{}"));if(automatic&&(!old.optString("text").isEmpty()||old.optBoolean("instrumental"))){send("spinLyricsLoaded",new JSONObject().put("id",id).put("data",old));return;}AppDiagnostics.log(this,"LYRICS_BEGIN id="+id+" automatic="+automatic);send("spinLyricsSearching",new JSONObject().put("id",id));JSONObject t=new JSONObject(json);if(automatic){JSONObject q=new JSONObject(getSharedPreferences("spin",0).getString("lyricsQuery:"+id,"{}"));if(!q.optString("name").isEmpty()&&!q.optString("artist").isEmpty())t.put("name",q.getString("name")).put("artist",q.getString("artist")).put("album","");}else{getSharedPreferences("spin",0).edit().putString("lyricsQuery:"+id,new JSONObject().put("name",t.optString("name")).put("artist",t.optString("artist")).toString()).apply();}LyricsProvider.Result r=searchSources(t,automatic);if(epoch!=lyricEpoch.get()||Thread.currentThread().isInterrupted())return;AppDiagnostics.log(this,"LYRICS_RESULTS id="+id+" items="+r.items.size()+" warnings="+r.warnings.toString());if(automatic)for(LyricsProvider.Candidate c:r.items)if(c.confident){saveLyricsChoice(id,c);return;}if(lyricCandidates.size()>=16)lyricCandidates.clear();lyricCandidates.put(id,r.items);JSONArray a=new JSONArray();for(LyricsProvider.Candidate c:r.items)a.put(candidateJson(c));send("spinLyricsCandidates",new JSONObject().put("id",id).put("items",a).put("automatic",automatic).put("warnings",new JSONArray(r.warnings)).put("statuses",new JSONObject(r.statuses)));}catch(Exception e){if(epoch!=lyricEpoch.get()||e instanceof InterruptedException)return;AppDiagnostics.log(this,"LYRICS_FAILED id="+id+" kind="+e.getClass().getSimpleName());try{send("spinLyricsSearchError",new JSONObject().put("id",id).put("error",safeError(e)));}catch(Exception ignored){}}}
+ void scanFoldersNow(){try{send("spinToast",JSONObject.quote("Сканирую музыкальные папки…"));JSONObject r;synchronized(MusicLibrary.class){r=MusicFolders.scan(this);}send("spinFoldersChanged",r.getJSONArray("folders"));send("spinLibraryRefresh",MusicLibrary.load(this));send("spinToast",JSONObject.quote("Добавлено: "+r.optInt("added")+" · ошибок: "+r.optInt("failed")));}catch(Exception e){send("spinToast",JSONObject.quote(safeError(e)));}}
+ void previewYandex(String request,String url)throws Exception{YandexCatalog catalog=new YandexCatalog(this);JSONObject metadata=catalog.metadata(url);String audio=catalog.audio(url,"best");JSONObject track=new JSONObject(metadata.toString()).put("id",-100000-Math.abs(url.hashCode()%900000000)).put("uri",audio).put("online",true).put("sourceUrl",url);try{File cover=ArtworkCache.load(this,metadata.optString("cover"));track.put("cover","art/"+cover.getName());}catch(Exception ignored){track.put("cover","app-cover.svg");}send("spinPreviewReady",new JSONObject().put("request",request).put("track",track));}
+ YtDlpEngine.Events catalogEvents(){Thread owner=Thread.currentThread();return new YtDlpEngine.Events(){public boolean cancelled(){return !alive||owner.isInterrupted();}public void log(String s){}};}
+ YtDlpEngine onlineEngine(){return new YtDlpEngine(this,catalogEvents());}
+ JSONArray searchCatalog(String query,String source)throws Exception{
+  if(source.startsWith("Яндекс Музыка"))return new YandexCatalog(this).search(query,source.endsWith(":albums"));
+  if(source.startsWith("Spotify"))return new SpotifyCatalog(musicConnections).search(query,source.endsWith(":albums"));
+  if("albums".equals(source))return OnlineExtractor.albums(query);
+  if(!"SoundCloud".equals(source))return OnlineExtractor.search(query,source);
+  YtDlpEngine engine=onlineEngine();
+  engine.init();
+  return engine.searchSoundCloud(query);
+ }
+ JSONObject engineResolve(String url)throws Exception{if(YandexCatalog.accepts(url)){YandexCatalog catalog=new YandexCatalog(this);return catalog.metadata(url).put("formats",catalog.formats(url));}if(SpotifyCatalog.accepts(url))throw new IOException("Выбери подходящую аудиозапись YouTube Music для песни Spotify");OnlineExtractor.validate(url);YtDlpEngine e=onlineEngine();e.init();JSONObject data=e.info(url);JSONArray formats=new JSONArray();formats.put(new JSONObject().put("key","best").put("label","Лучшее доступное · без перекодирования"));JSONArray fs=data.optJSONArray("formats");if(fs!=null)for(int i=fs.length()-1;i>=0;i--){JSONObject f=fs.optJSONObject(i);if(f==null||f.optBoolean("has_drm")||!"none".equals(f.optString("vcodec"))||"none".equals(f.optString("acodec"))||f.optInt("audio_channels",2)>2)continue;String id=f.optString("format_id");if(!id.matches("[A-Za-z0-9_.-]{1,80}"))continue;int bitrate=(int)Math.round(f.optDouble("abr",f.optDouble("tbr",0)));formats.put(new JSONObject().put("key","format:"+id).put("label",f.optString("ext")+" · "+(bitrate>0?bitrate+" кбит/с":"исходное качество")).put("bitrate",bitrate).put("estimatedBytes",f.optLong("filesize",f.optLong("filesize_approx",0))));}return new JSONObject().put("name",data.optString("track",data.optString("title","Аудио"))).put("artist",data.optString("artist",data.optString("uploader","Неизвестный исполнитель"))).put("url",url).put("duration",data.optDouble("duration",0)).put("service",url.contains("soundcloud.com")?"SoundCloud · экспериментально":"YouTube / YouTube Music").put("verified",data.optBoolean("channel_is_verified")).put("cover",data.optString("thumbnail")).put("formats",formats);}
+ JSONObject enginePlaylist(String url)throws Exception{if(YandexCatalog.accepts(url))return new YandexCatalog(this).collection(url);if(SpotifyCatalog.accepts(url))return new SpotifyCatalog(musicConnections).collection(url);OnlineExtractor.validate(url);YtDlpEngine e=new YtDlpEngine(this,new YtDlpEngine.Events(){public boolean cancelled(){return !alive;}public void log(String s){}});e.init();AlbumManifest data=AlbumManifest.parse(e.playlist(url).toString());JSONArray a=new JSONArray();for(AlbumManifest.Entry t:data.entries)a.put(new JSONObject().put("name",t.title).put("artist",t.artist).put("duration",t.duration).put("cover",t.cover.isEmpty()?data.cover:t.cover).put("url",t.url));return new JSONObject().put("name",data.title).put("cover",data.cover).put("tracks",a).put("limited",a.length()>=100);}
+ WebResourceResponse onlineThumb(String address){try{return new WebResourceResponse("image/jpeg",null,new FileInputStream(ArtworkCache.load(this,address)));}catch(Exception e){AppDiagnostics.log(this,"ARTWORK_FAILED kind="+e.getClass().getSimpleName()+" reason="+(e.getMessage()!=null&&e.getMessage().matches("Artwork[A-Za-z0-9]+")?e.getMessage():"redacted"));try{return new WebResourceResponse("image/svg+xml","UTF-8",getAssets().open("app-cover.svg"));}catch(Exception ignored){return new WebResourceResponse("image/svg+xml","UTF-8",new ByteArrayInputStream(new byte[0]));}}}
+ String safeError(Exception e){if(e instanceof java.net.UnknownHostException)return "Нет доступа к источнику. Проверь интернет или VPN.";if(e instanceof java.net.SocketTimeoutException)return "Источник не ответил вовремя.";String message=e.getMessage();if(message==null)message=e.getClass().getSimpleName();return message.length()>240?message.substring(0,240):message;}
+ void onlineError(String requestId,Exception e){try{send("spinOnlineError",new JSONObject().put("requestId",requestId).put("error",safeError(e)));}catch(Exception ignored){}}
+ String value(MediaMetadataRetriever m,int key,String fallback){String v=m.extractMetadata(key);return v==null||v.trim().isEmpty()?fallback:v;}
+ @Override public void onBackPressed(){web.evaluateJavascript("window.spinBack && window.spinBack()",null);}
+ @Override protected void onDestroy(){alive=false;main.removeCallbacks(ticker);main.removeCallbacks(updateTicker);updateWorker.shutdown();if(musicConnections!=null)musicConnections.close();catalogWorker.shutdownNow();worker.shutdown();lyricsWorker.shutdownNow();lyricFiles.shutdownNow();lyricNetwork.shutdownNow();web.removeJavascriptInterface("SpinNative");web.destroy();super.onDestroy();}
+}

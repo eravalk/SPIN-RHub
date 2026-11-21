@@ -1,0 +1,28 @@
+plugins { id 'com.android.application' }
+def releaseVersion = new Properties()
+rootProject.file('version.properties').withInputStream { releaseVersion.load(it) }
+android {
+ namespace 'com.spinplayer.app'
+ compileSdk 35
+ defaultConfig { applicationId 'com.spinplayer.next'; minSdk 33; targetSdk 35; versionCode releaseVersion.getProperty('versionCode').toInteger(); versionName releaseVersion.getProperty('versionName') }
+ buildTypes { release { minifyEnabled false } }
+ compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+
+dependencies { implementation fileTree(dir: "libs", include: ["*.jar"]) }
+
+tasks.register('verifyDownloadRelease') {
+ doLast {
+  def report = rootProject.file('tests/download-validation.json')
+  if (!report.exists()) throw new GradleException('No end-to-end download test report')
+  def result = new groovy.json.JsonSlurper().parse(report)
+  if (result.release_kind != 'alpha-integration' || result.runtime_device_verified != true)
+   throw new GradleException('Missing diagnostic runtime verification')
+ }
+}
+tasks.named('preBuild').configure { dependsOn tasks.named('verifyDownloadRelease') }
+tasks.register('syncAppVersion', Exec) {
+ workingDir rootProject.projectDir
+ commandLine 'python3', 'tools/version.py'
+}
+tasks.named('preBuild').configure { dependsOn tasks.named('syncAppVersion') }

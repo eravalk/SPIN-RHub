@@ -1,0 +1,20 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ <uses-permission android:name="android.permission.INTERNET"/><uses-permission android:name="android.permission.RECORD_AUDIO"/>
+ <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+ <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+ <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
+ <uses-permission android:name="android.permission.WAKE_LOCK"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+ <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+ <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+ <application android:extractNativeLibs="true" android:label="SPIN RHub" android:icon="@mipmap/rhub" android:roundIcon="@mipmap/rhub" android:theme="@style/SpinTheme" android:allowBackup="false" android:usesCleartextTraffic="false" android:supportsRtl="true">
+  <activity android:windowSoftInputMode="adjustResize" android:name="com.spinplayer.app.MainActivity" android:exported="true" android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden" android:resizeableActivity="true">
+   <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+  </activity>
+  <receiver android:name="com.spinplayer.app.DownloadsReceiver" android:exported="true"><intent-filter><action android:name="android.intent.action.DOWNLOAD_COMPLETE"/></intent-filter></receiver>
+  <service android:name="com.spinplayer.app.DownloadService" android:exported="false" android:foregroundServiceType="dataSync"/><service android:name="com.spinplayer.app.PlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback"/>
+  <receiver android:name="com.spinplayer.app.CompactWidget" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_compact"/></receiver>
+  <receiver android:name="com.spinplayer.app.StandardWidget" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_standard"/></receiver>
+  <receiver android:name="com.spinplayer.app.VinylWidget" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_vinyl"/></receiver>
+  <receiver android:name="com.spinplayer.app.CollectionWidget" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_collection"/></receiver>
+ </application>
+</manifest>

@@ -1,0 +1,35 @@
+{
+  "version": "1.3.0.0",
+  "versionCode": 20,
+  "package": "com.spinplayer.next",
+  "minimumAndroid": 13,
+  "abi": [
+    "arm64-v8a"
+  ],
+  "build_and_signature_verified": true,
+  "original_certificate_sha256": "2ca31960c7451a23e94f8a08762f9c45b78f2d62eadacbd50e7060df87ae14ed",
+  "apk_sha256": "c755c179179272a2a8b5027483b224893dda7d4dc30b79b1306d61dc341ee6ec",
+  "tests_passed": [
+    "full_script_initialization_and_source_flows_mock_native_bridge",
+    "16_scripts_syntax",
+    "navigation_persistence_process_restart",
+    "explicit_update_download_progress_retry_install",
+    "animation_transitions",
+    "version_bump_reset_and_migration",
+    "provider_metadata_url_validation_and_match_guards",
+    "release_APK_metadata_digest_and_repository_validation",
+    "Spotify_GraphQL_fixture_pagination_unavailable_items_and_interrupt",
+    "real_packaged_spotDL_host_import_ranking_URL_guard_error_redaction_disabled_Python_auth",
+    "APK_asset_byte_comparison"
+  ],
+  "android_device_tested": false,
+  "android_ARM64_spotdl_execution_tested": false,
+  "new_live_spotify_anonymous_catalog_tested": false,
+  "live_authenticated_yandex_audio_tested": false,
+  "new_live_five_provider_download_tests": false,
+  "actual_layout_and_Samsung_audio_notification_tests": false,
+  "github_release_published": false,
+  "spotify_audio_origin": "YouTube Music",
+  "spotdl_scope": "4.6.0 original matching modules, native-supplied metadata, ytmusicapi candidate search; yt-dlp downloads",
+  "status": "integration_build_requires_device_and_network_validation"
+}

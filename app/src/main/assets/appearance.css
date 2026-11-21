@@ -1,0 +1,10 @@
+body:not(.show-seekbar) .wave-seek{display:none!important}
+.seek-help{display:none!important}
+#intro041{width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 32px);border:1px solid var(--line);border-radius:24px;padding:28px;background:var(--surface);color:var(--text)}
+#intro041::backdrop{background:#0009}
+#intro041 small{display:block;margin:12px 0}
+#intro041 p{font-size:15px;line-height:1.7;margin:18px 0 24px}
+.intro-glyph{color:var(--accent);background:var(--selected);width:64px;height:64px;border-radius:20px;display:grid;place-items:center}
+.intro-glyph svg{width:32px;height:32px}
+.intro-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap}
+.settings-card input[type=color]{width:60px;height:40px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);padding:4px;flex-shrink:0}

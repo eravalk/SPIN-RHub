@@ -1,0 +1,17 @@
+{
+  "version": "0.4.1-alpha",
+  "android_build": "passed",
+  "signature_verified": true,
+  "same_certificate_as_0_4_0_new": true,
+  "android_device_tested": false,
+  "browser_mock_tests": "passed",
+  "added_checks": [
+    "seekbar default hidden and toggle",
+    "needle help removed",
+    "background and contrast",
+    "color reset",
+    "intro steps replay skip",
+    "activation has no solution hint"
+  ],
+  "notification_audio_visualization": "Not implemented: SystemUI media progress bar is OS-owned"
+}

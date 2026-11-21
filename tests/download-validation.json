@@ -1,0 +1,39 @@
+{
+  "release_kind": "alpha-integration",
+  "runtime_device_verified": true,
+  "main_app_device_verified": false,
+  "offline_device_verified": false,
+  "experimental_soundcloud": true,
+  "spotify_enabled": false,
+  "evidence": {
+    "diagnostics_version": "1.3",
+    "log_sha256": "7056d71ec6326a6d2da5494521a256aef52c88134f9f2b8af70ca587d9a41866",
+    "album_saved": 14,
+    "album_failed": 0,
+    "local_audio_confirmed": true
+  },
+  "runtime_sha256": {
+    "ffmpeg-runtime.zip": "4664a895283f9f31786be39b0c484c1f96631f02c7c7f9c70a4a4a2da324a092",
+    "python-runtime.zip": "7edecb6c9bd3a94456168d44911d8aea9f917bedef90c320a29500d92ac3eb62",
+    "yt-engine.zip": "f783231c9bee6f7a18ca931ab8ea7c382861be5c882633e932e04b9b44e21b2d"
+  },
+  "local_checks": {
+    "java_compile": true,
+    "ui_chromium_mock_bridge": true,
+    "native_android_launch": false,
+    "fold_widths_css_px": [
+      344,
+      720
+    ],
+    "ui_scenarios": [
+      "startup",
+      "lyrics_open_close",
+      "fold_resize",
+      "track_change",
+      "lyric_seek_opt_in",
+      "seekbar",
+      "folder_picker_bridge",
+      "album_search"
+    ]
+  }
+}

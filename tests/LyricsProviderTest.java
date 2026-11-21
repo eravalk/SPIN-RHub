@@ -1,0 +1,18 @@
+import com.spinplayer.app.LyricsProvider;import java.util.*;
+public class LyricsProviderTest {
+ static String row(int id,String title,String artist,int duration,boolean sync){return "{\"id\":"+id+",\"trackName\":\""+title+"\",\"artistName\":\""+artist+"\",\"albumName\":\"Album\",\"duration\":"+duration+",\"syncedLyrics\":"+(sync?"\"[00:01.00]Original fixture line\"":"null")+",\"plainLyrics\":\"Original fixture line\"}";}
+ static void check(boolean v){if(!v)throw new AssertionError();}
+ public static void main(String[] args)throws Exception{
+  List<String> calls=new ArrayList<>();LyricsProvider.Result r=LyricsProvider.find("Song (Official Audio)","Artist - Topic","Album",180,u->{calls.add(u);return row(1,"Song","Artist",180,true);});check(calls.size()==1&&r.items.size()==1&&r.items.get(0).confident&&r.items.get(0).synced);
+  calls.clear();r=LyricsProvider.find("Song","Artist","Album",180,u->{calls.add(u);if(u.contains("/api/get?"))throw new java.io.IOException("LyricsHttp404");return "["+row(2,"Song (Live)","Artist",180,true)+","+row(3,"Song","Artist",181,true)+","+row(4,"Song","Other",180,true)+"]";});check(r.items.get(0).providerId==3&&r.items.get(0).confident);for(LyricsProvider.Candidate c:r.items)if(c.providerId!=3)check(!c.confident);
+  r=LyricsProvider.find("Song (Slowed)","Artist","",180,u->u.contains("lyrics.ovh")?"{\"lyrics\":\"Fixture only\"}":u.contains("/search")?"["+row(5,"Song","Artist",180,true)+"]":row(5,"Song","Artist",180,true));for(LyricsProvider.Candidate c:r.items)check(!c.confident);
+  r=LyricsProvider.find("Song","Artist","",200,u->u.contains("lyrics.ovh")?"{\"lyrics\":\"Fixture\"}":u.contains("/search")?"["+row(6,"Song","Artist",180,true)+"]":row(6,"Song","Artist",180,true));for(LyricsProvider.Candidate c:r.items)check(!c.confident);
+  r=LyricsProvider.find("Song","Artist","",180,u->{if(u.contains("lyrics.ovh"))return "{\"lyrics\":\"Unsynced fixture\"}";throw new java.io.IOException();});check(r.items.size()==1&&!r.items.get(0).synced&&!r.items.get(0).confident&&r.items.get(0).source.equals("lyrics.ovh"));
+  calls.clear();r=LyricsProvider.find("Song","Artist","",180,u->{calls.add(u);throw new LyricsProvider.RateLimited();});check(calls.stream().filter(u->u.contains("lrclib.net")).count()==1&&calls.stream().anyMatch(u->u.contains("lyrics.ovh"))&&r.warnings.contains("rate_limited"));
+  calls.clear();r=LyricsProvider.find("Song","Неизвестный исполнитель","",180,u->{calls.add(u);return "";});check(calls.isEmpty()&&r.warnings.contains("missing_metadata"));
+  r=LyricsProvider.find("Song","Artist","",180,u->u.contains("/get?")?row(7,"Song","Artist",180,false):"["+row(8,"Song","Artist",180,true)+"]");check(r.items.get(0).providerId==8&&r.items.get(0).synced);
+  calls.clear();r=LyricsProvider.find("Song","Artist, Vocalist","",180,u->{calls.add(u);if(u.contains("lyrics.ovh"))throw new java.io.IOException("LyricsHttp404");if(u.contains("/get?"))throw new java.io.IOException("LyricsHttp404");return u.contains("search?track_name=")&&!u.contains("artist_name=")?"["+row(9,"Song","Artist",180,true)+"]":"[]";});check(r.items.size()==1&&r.items.get(0).providerId==9&&!r.items.get(0).confident);
+  calls.clear();r=LyricsProvider.find("Song","Artist","",180,u->{calls.add(u);throw new java.io.IOException("LyricsHttp502");});check(calls.size()==4&&r.warnings.contains("lrclib:LyricsHttp502")&&r.warnings.contains("lyrics.ovh:LyricsHttp502"));
+  System.out.println("PASS: exact lookup, cleanup, expanded search, ranking, live/slowed rejection, duration mismatch, unsynced fallback, rate-limit stop, missing metadata, synced preference");
+ }
+}
