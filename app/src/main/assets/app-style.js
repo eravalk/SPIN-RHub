@@ -324,6 +324,7 @@
     if(activeSwap)activeSwap.finish();
     window.SpinStyleColors?.save();
     style=next;body.dataset.appStyle=style;safeSave(KEY,style);
+    N.playerAppearance?.(style);
     window.SpinStyleColors?.load();
     applyAppearance041();
     body.classList.remove('wide-lyrics','queue-open','glass-expanded','glass-wide','cover-playing');$('#sideQueue')?.remove();queueOpen=false;
@@ -360,5 +361,5 @@
   window.addEventListener('resize',()=>{if(isGlass()){cancelDrag();renderSidePanel();startFrame();}});
   if(typeof ResizeObserver==='function')new ResizeObserver(startFrame).observe($('#player'));
   window.SpinAppStyle={get:()=>style,set:applyStyle,mediaFor,view:()=>view,showPlayer:()=>setView('player'),showLibrary:()=>{if(isGlass())setView('browser');},stop:()=>{cancelDrag();cancelMotions();if(animationFrame)cancelAnimationFrame(animationFrame);animationFrame=0;}};
-  body.dataset.appStyle=style;if(isGlass())ensureShell();renderMain();renderPlayer();
+  body.dataset.appStyle=style;N.playerAppearance?.(style);if(isGlass())ensureShell();renderMain();renderPlayer();
 })();

@@ -1,7 +1,9 @@
-name: Verify SPIN Player debug branch build
+name: Verify signed SPIN Player APK
 on:
   push:
     branches: ['work/spin-player-refresh']
+  pull_request:
+    branches: ['theme/liquid-glass']
 permissions:
   contents: read
 jobs:

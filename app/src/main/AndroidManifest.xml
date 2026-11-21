@@ -8,8 +8,13 @@
  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
  <application android:extractNativeLibs="true" android:label="SPIN Player" android:icon="@mipmap/rhub" android:roundIcon="@mipmap/rhub" android:theme="@style/SpinTheme" android:allowBackup="false" android:usesCleartextTraffic="false" android:supportsRtl="true">
   <activity android:windowSoftInputMode="adjustResize" android:name="com.spinplayer.app.MainActivity" android:exported="true" android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden" android:resizeableActivity="true">
-   <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
   </activity>
+  <activity-alias android:name="com.spinplayer.app.VinylLauncher" android:targetActivity="com.spinplayer.app.MainActivity" android:exported="true" android:icon="@mipmap/rhub">
+   <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+  </activity-alias>
+  <activity-alias android:name="com.spinplayer.app.CdLauncher" android:targetActivity="com.spinplayer.app.MainActivity" android:enabled="false" android:exported="true" android:icon="@drawable/ic_cd_launcher">
+   <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+  </activity-alias>
   <receiver android:name="com.spinplayer.app.DownloadsReceiver" android:exported="true"><intent-filter><action android:name="android.intent.action.DOWNLOAD_COMPLETE"/></intent-filter></receiver>
   <service android:name="com.spinplayer.app.DownloadService" android:exported="false" android:foregroundServiceType="dataSync"/><service android:name="com.spinplayer.app.PlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback"/>
   <receiver android:name="com.spinplayer.app.CompactWidget" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_compact"/></receiver>

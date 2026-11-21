@@ -38,6 +38,33 @@ public class MainActivity extends Activity {
   super.onPause();
  }
  public class Bridge {
+  @JavascriptInterface public void playerAppearance(String name) {
+   if (!"vinyl".equals(name) && !"liquid-glass".equals(name)) return;
+   main.post(() -> {
+    if (!alive) return;
+    boolean cd = "liquid-glass".equals(name);
+    android.content.pm.PackageManager pm = getPackageManager();
+    ComponentName vinyl = new ComponentName(MainActivity.this, "com.spinplayer.app.VinylLauncher");
+    ComponentName glass = new ComponentName(MainActivity.this, "com.spinplayer.app.CdLauncher");
+    int enabled = android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+    int disabled = android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
+    int flags = android.content.pm.PackageManager.DONT_KILL_APP;
+    try {
+     if (pm.getComponentEnabledSetting(vinyl) != (cd ? disabled : enabled) ||
+         pm.getComponentEnabledSetting(glass) != (cd ? enabled : disabled)) {
+      pm.setComponentEnabledSettings(Arrays.asList(
+          new android.content.pm.PackageManager.ComponentEnabledSetting(vinyl, cd ? disabled : enabled, flags),
+          new android.content.pm.PackageManager.ComponentEnabledSetting(glass, cd ? enabled : disabled, flags)));
+     }
+    } catch (IllegalArgumentException | SecurityException e) {
+     AppDiagnostics.log(MainActivity.this, "Unable to switch launcher appearance");
+    }
+    if (!name.equals(getSharedPreferences("spin",0).getString("playerAppearance","vinyl"))) {
+     getSharedPreferences("spin",0).edit().putString("playerAppearance",name).apply();
+     SpinWidget.refresh(MainActivity.this);
+    }
+   });
+  }
   @JavascriptInterface public void musicConnectionStatus(){musicConnections.status();}
   @JavascriptInterface public void connectMusicService(String service){musicConnections.connect(service);}
   @JavascriptInterface public void disconnectMusicService(String service){musicConnections.disconnect(service);}

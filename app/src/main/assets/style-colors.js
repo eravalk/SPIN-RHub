@@ -25,7 +25,7 @@
     if (!shell) return;
     const bg = profile.spinCustomBackground === 'true' && valid041(profile.spinBackgroundColor) ? profile.spinBackgroundColor : null;
     const transparency = Math.max(0, Math.min(85, Number(profile.transparency) || 0));
-    shell.style.setProperty('--lg-glass', 'color-mix(in srgb,var(--surface) '+(100-transparency)+'%,transparent)');
+    shell.style.setProperty('--lg-glass', 'color-mix(in srgb,color-mix(in srgb,var(--surface) 87%,var(--accent)) '+(100-transparency)+'%,transparent)');
     for (const [key,value] of Object.entries({
       '--lg-base': bg,
       '--lg-cover-opacity': bg ? '0' : null,
@@ -59,103 +59,162 @@
 
   const updateTheme = setTheme;
   setTheme = function(next) { updateTheme(next); save(); };
-  let editor, editedId, draft;
-  function preview(value) {
-    if (!valid041(value)) return;
-    draft = value;
-    editor.querySelector('.color-preview').style.setProperty('--sample',value);
-    editor.querySelectorAll('[data-channel]').forEach((input,i) => { input.value=rgb041(value)[i]; });
-    if(editedId==='accentColor') setAccentColor(value);
-    else applyGlass({...profiles[styleKey()],spinCustomBackground:'true',spinBackgroundColor:value});
+  const paletteKey = 'spinSavedPlayerPalettes';
+  let savedPalettes;
+  try { savedPalettes = JSON.parse(localStorage.getItem(paletteKey) || '{}') || {}; }
+  catch { savedPalettes = {}; }
+
+  function preset(name, style) {
+    const glass = style === 'liquid-glass';
+    const colors = {
+      dark: ['#23252b', glass ? '#b9c6eb' : '#83c8bf', 'dark', 55],
+      black: ['#000000', '#b1c3e1', 'black', 35],
+      light: ['#eef2fa', glass ? '#4269a3' : '#386e64', 'light', 30],
+      blue: ['#182842', '#a6c8ff', 'dark', 65]
+    };
+    const [background, accent, nextTheme, transparency] = colors[name];
+    return {theme: nextTheme, spinAccentMode: 'manual', spinAccent: accent,
+      spinCustomBackground: name === 'blue' && glass ? 'false' : 'true',
+      spinBackgroundColor: background, transparency};
   }
-  function openColor(id) {
-    editedId=id;
-    const initial=document.getElementById(id)?.value;
-    draft=valid041(initial)?initial:'#8ab4f8';
-    editor=document.createElement('dialog');
-    editor.id='spinColorEditor';
-    editor.setAttribute('aria-labelledby','spinColorTitle');
-    editor.innerHTML=`<form>
-      <h2 id="spinColorTitle">${id==='accentColor'?'Цвет акцента':'Цвет фона'}</h2>
-      <div class="color-presets">${['#8ab4f8','#83ddcc','#f2adc9','#c7afff','#ffd9a0','#121622','#000000','#f4f3ff'].map(color=>`<button type="button" data-color="${color}" aria-label="${color}" style="--sample:${color}"></button>`).join('')}</div>
-      <div class="color-fields">${['Красный','Зелёный','Синий'].map((name,i)=>`<label>${name}<input type="range" min="0" max="255" data-channel="${i}"></label>`).join('')}</div>
-      <label>HEX <input name="hex" value="${draft}" size="9" required maxlength="7" pattern="#[a-fA-F0-9]{6}"></label>
-      <div class="color-preview">Предпросмотр цвета</div>
-      <div class="actions"><button class="secondary" type="button" data-cancel-color>Отмена</button><button class="primary">Применить</button></div>
-    </form>`;
-    const input=editor.querySelector('input[name=hex]');
-    editor.addEventListener('click', event => {
-      const button=event.target.closest('button');
-      if(button?.dataset.color){ input.value=button.dataset.color;preview(input.value); }
-      if(button?.hasAttribute('data-cancel-color')) editor.close();
-    });
-    editor.addEventListener('input', event => {
-      if(event.target.hasAttribute('data-channel')){
-        input.value=hex041([...editor.querySelectorAll('[data-channel]')].map(node=>Number(node.value)));
+
+  function renderEditor(group) {
+    const style = styleKey(), glass = style === 'liquid-glass';
+    const initial = {...defaults(style), ...profiles[style]};
+    let draft = {...initial};
+    const list = Array.isArray(savedPalettes[style]) ? savedPalettes[style] : [];
+    group.innerHTML = '<h3>Цвета проигрывателя</h3><div class="spin-palette-layout"><div class="spin-palette-controls">' +
+      '<div class="spin-preset-row"><button type="button" class="secondary" data-preset="dark">Тёмная</button>' +
+      '<button type="button" class="secondary" data-preset="black">Чёрная</button>' +
+      '<button type="button" class="secondary" data-preset="light">Светлая</button>' +
+      '<button type="button" class="secondary" data-preset="blue">Синеватая</button></div>' +
+      '<details><summary>Свой цвет</summary><label class="setting-row">' + (glass ? 'Оттенок стекла' : 'Акцент') +
+      '<input type="color" aria-label="Выбрать цвет"><input class="field spin-palette-hex" type="text" aria-label="Акцент HEX" maxlength="7"></label>' +
+      (glass ? '<label class="setting-row">Фон от обложки <input type="checkbox" data-cover-background></label><label class="setting-row">Прозрачность стекла <input data-glass-opacity type="range" min="0" max="85"></label>' :
+        '<label class="setting-row">Акцент от обложки <input type="checkbox" data-cover-accent></label>') +
+      '<label class="setting-row">Свой фон<input type="color" data-background aria-label="Цвет фона"><input class="field spin-palette-hex" data-background-hex type="text" aria-label="Фон HEX" maxlength="7"></label>' +
+      '<button type="button" class="text-btn" data-default-background>Стандартный фон</button></details>' +
+      '<div class="spin-saved-palettes"></div><form class="spin-palette-save"><input class="field" name="name" aria-label="Имя палитры" placeholder="Имя палитры" required maxlength="48">' +
+      '<button class="secondary">Сохранить как палитру</button></form>' +
+      '<div class="spin-preset-row"><button type="button" class="secondary" data-cancel-palette>Отмена</button><button type="button" class="primary" data-apply-palette>Применить</button></div></div>' +
+      '<div class="spin-palette-preview"><small>Предпросмотр</small><div class="spin-preview-surface"><b>Сейчас играет</b><div class="spin-preview-media" aria-hidden="true"></div>' +
+      '<span class="spin-preview-play" aria-hidden="true">▶</span><div class="spin-preview-tab">Библиотека</div></div></div></div>';
+    const accent = group.querySelector('input[type=color]'), hex = group.querySelector('input[aria-label="Акцент HEX"]');
+    const background = group.querySelector('[data-background]'), backgroundHex = group.querySelector('[data-background-hex]');
+    const cover = group.querySelector('[data-cover-background]'), coverAccent = group.querySelector('[data-cover-accent]');
+    const opacity = group.querySelector('[data-glass-opacity]');
+    const preview = group.querySelector('.spin-palette-preview');
+    if (glass) preview.classList.add('spin-preview-cd');
+    function draw(sync = true) {
+      const a = valid041(draft.spinAccent) ? draft.spinAccent : defaults(style).spinAccent;
+      const custom = draft.spinCustomBackground === 'true';
+      const bg = custom && valid041(draft.spinBackgroundColor) ? draft.spinBackgroundColor :
+        draft.theme==='light'?'#eef2fa':draft.theme==='black'?'#000000':glass?'#182842':'#23252b';
+      if (sync) {
+        accent.value = hex.value = a;
+        background.value = backgroundHex.value = bg;
+        if (cover) cover.checked = !custom;
+        if (coverAccent) coverAccent.checked = draft.spinAccentMode === 'album';
+        if (opacity) opacity.value = draft.transparency;
       }
-      preview(input.value);
+      preview.style.setProperty('--preview-bg', bg);
+      preview.style.setProperty('--preview-accent', a);
+      preview.style.setProperty('--preview-glass', (100 - draft.transparency) + '%');
+      preview.style.setProperty('--preview-ink', luminance041(rgb041(bg)) > .179 ? '#131824' : '#f5f6fb');
+      preview.style.setProperty('--preview-onaccent', luminance041(rgb041(a)) > .179 ? '#131824' : '#f5f6fb');
+    }
+    function persistPalettes() {
+      savedPalettes[style] = list;
+      localStorage.setItem(paletteKey, JSON.stringify(savedPalettes));
+    }
+    function drawSaved() {
+      const host = group.querySelector('.spin-saved-palettes');
+      host.replaceChildren();
+      if (!list.length) return;
+      const title = document.createElement('b');
+      title.textContent = 'Мои палитры';
+      host.append(title);
+      list.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'spin-preset-row';
+        for (const [action,label] of [['load',item.name],['rename','Переименовать'],['delete','Удалить']]) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'secondary';
+          button.dataset.paletteAction = action;
+          button.dataset.paletteIndex = index;
+          button.textContent = label;
+          row.append(button);
+        }
+        host.append(row);
+      });
+    }
+    group.addEventListener('input', e => {
+      const control = e.target;
+      if (control === accent || control === hex) {
+        if (!valid041(control.value)) return;
+        draft.spinAccent = control.value;
+        draft.spinAccentMode = 'manual';
+        accent.value = hex.value = control.value;
+        if (coverAccent) coverAccent.checked = false;
+      } else if (control === background || control === backgroundHex) {
+        if (!valid041(control.value)) return;
+        draft.spinCustomBackground = 'true';
+        draft.spinBackgroundColor = control.value;
+        background.value = backgroundHex.value = control.value;
+        if (cover) cover.checked = false;
+      } else if (control === cover) {
+        draft.spinCustomBackground = cover.checked ? 'false' : 'true';
+        if (!cover.checked && !valid041(draft.spinBackgroundColor)) draft.spinBackgroundColor = background.value;
+      } else if (control === coverAccent) draft.spinAccentMode = coverAccent.checked ? 'album' : 'manual';
+      else if (control === opacity) draft.transparency = Number(control.value);
+      draw(false);
     });
-    editor.addEventListener('submit', event => {
-      event.preventDefault();
-      if(!valid041(input.value))return;
-      const control=document.getElementById(id);
-      if(control){control.value=input.value;control.dispatchEvent(new Event('input',{bubbles:true}));}
-      save();
-      editor.close();
-      renderMain();
+    group.addEventListener('click', e => {
+      const button = e.target.closest('button');
+      if (!button) return;
+      if (button.dataset.preset) { draft = preset(button.dataset.preset,style); draw(); }
+      if (button.hasAttribute('data-default-background')) { draft.spinCustomBackground = 'false'; draw(); }
+      if (button.hasAttribute('data-cancel-palette')) { draft = {...initial}; draw(); }
+      if (button.hasAttribute('data-apply-palette')) {
+        profiles[style] = {...draft};
+        localStorage.setItem(storageKey, JSON.stringify(profiles));
+        load();
+        renderMain();
+      }
+      const action = button.dataset.paletteAction, index = Number(button.dataset.paletteIndex);
+      const item = list[index];
+      if (!action || !item) return;
+      if (action === 'load') { draft = {...defaults(style),...item.profile}; draw(); return; }
+      if (action === 'delete' && window.confirm('Удалить палитру «' + item.name + '»?')) list.splice(index,1);
+      if (action === 'rename') {
+        const value = window.prompt('Имя палитры', item.name);
+        if (value?.trim()) item.name = value.trim().slice(0,48);
+      }
+      persistPalettes();
+      drawSaved();
     });
-    editor.addEventListener('close', () => {
-      editor.remove();
-      editor=null;
-      applyAccent();
-      applyGlass(profiles[styleKey()]||defaults(styleKey()));
-    },{once:true});
-    document.body.append(editor);
-    editor.showModal();
-    preview(draft);
+    group.querySelector('form').addEventListener('submit', e => {
+      e.preventDefault();
+      const input = e.currentTarget.elements.name;
+      const name = input.value.trim().slice(0,48);
+      if (!name) return;
+      list.push({name,profile:{...draft}});
+      input.value = '';
+      persistPalettes();
+      drawSaved();
+    });
+    drawSaved();
+    draw();
   }
+
   const render = renderMain;
   renderMain = function() {
     render();
     applyGlass(profiles[styleKey()] || defaults(styleKey()));
     if(page!=='settings')return;
-    for(const id of ['accentColor','backgroundColor041']){
-      const control=document.getElementById(id);
-      if(!control || control.type==='hidden')continue;
-      const color=valid041(control.value)?control.value:'#000000';
-      control.type='hidden';
-      const button=document.createElement('button');
-      button.type='button';
-      button.className='secondary spin-color-swatch';
-      button.setAttribute('aria-label',id==='accentColor'?'Изменить цвет акцента':'Изменить цвет фона');
-      button.innerHTML=`<i style="--sample:${color}"></i>`;
-      button.addEventListener('click',()=>openColor(id));
-      control.after(button);
-    }
-    const group=$('#accentMode')?.closest('.settings-card');
-    if(group) group.querySelector('h3').textContent='Цвета · '+(styleKey()==='vinyl'?'Винил':'Liquid Glass');
-    if(group && styleKey()==='liquid-glass' && !group.querySelector('#glassTransparency')){
-      const value=profiles[styleKey()]?.transparency ?? defaults(styleKey()).transparency;
-      group.insertAdjacentHTML('beforeend',`<label class="setting-row">Прозрачность стекла
-        <input id="glassTransparency" type="range" min="0" max="85" value="${value}" aria-label="Прозрачность стекла"></label>`);
-    }
+    const group = $('#accentMode')?.closest('.settings-card');
+    if (group) renderEditor(group);
   };
-  const back=window.spinBack;
-  window.spinBack=function(){if(editor?.open){editor.close();return;}return back();};
-  document.addEventListener('input', e=>{
-    if (['accentColor','backgroundColor041'].includes(e.target.id)) { save();applyGlass(profiles[styleKey()]); }
-    if (e.target.id==='glassTransparency'){
-      profiles[styleKey()].transparency=Number(e.target.value);save();applyGlass(profiles[styleKey()]);
-    }
-  });
-  document.addEventListener('change', e=>{
-    if (['accentMode','customBackground041'].includes(e.target.id)) {save();applyGlass(profiles[styleKey()]);}
-  });
-  document.addEventListener('click', e=>{
-    if(e.target.closest('#resetColors041')){
-      profiles[styleKey()]=defaults(styleKey());
-      load();save();renderMain();
-    }
-  });
   renderMain();
 })();
