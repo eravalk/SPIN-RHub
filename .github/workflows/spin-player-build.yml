@@ -18,7 +18,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - name: Verify release signing is configured
         env:
           SIGNING_STORE: ${{ secrets.SPIN_KEYSTORE_BASE64 }}
@@ -30,7 +29,9 @@ jobs:
           fi
       - name: Prepare Android tooling and pinned runtime assets
         run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          if [ ! -f "$ANDROID_HOME/platforms/android-35/android.jar" ] || [ ! -x "$ANDROID_HOME/build-tools/35.0.0/aapt2" ]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+          fi
           curl -fLsS --retry 3 https://repo.maven.apache.org/maven2/org/eclipse/jdt/ecj/3.38.0/ecj-3.38.0.jar -o "$RUNNER_TEMP/ecj.jar"
           curl -fLsS --retry 3 https://github.com/eravalk/SPIN-RHub/releases/download/v1.3.0.0/SPIN-RHub-1.3.0.0-source.zip -o "$RUNNER_TEMP/spin-source.zip"
           echo "683491248fbbb7f43b50684934f26f3c243890f2a1889b373786a81bae2f7d09  $RUNNER_TEMP/spin-source.zip" | sha256sum --check
