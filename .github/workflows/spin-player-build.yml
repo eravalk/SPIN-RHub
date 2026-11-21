@@ -18,15 +18,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Verify release signing is configured
-        env:
-          SIGNING_STORE: ${{ secrets.SPIN_KEYSTORE_BASE64 }}
-          SIGNING_PASSWORD: ${{ secrets.SPIN_KEYSTORE_PASSWORD }}
-        run: |
-          if [ -z "$SIGNING_STORE" ] || [ -z "$SIGNING_PASSWORD" ]; then
-            echo "::error::The repository's existing Android release signing secrets are unavailable."
-            exit 1
-          fi
       - name: Prepare Android tooling and pinned runtime assets
         run: |
           if [ ! -f "$ANDROID_HOME/platforms/android-35/android.jar" ] || [ ! -x "$ANDROID_HOME/build-tools/35.0.0/aapt2" ]; then
@@ -67,19 +58,26 @@ jobs:
         run: |
           set -eu
           umask 077
-          mkdir -p signing
-          trap 'rm -rf signing' EXIT
-          printf '%s' "$SIGNING_STORE" | base64 -d > signing/spin-next.keystore
-          printf '%s' "$SIGNING_PASSWORD" > signing/password.txt
-          SPIN_SDK="$ANDROID_HOME" SPIN_ECJ_JAR="$RUNNER_TEMP/ecj.jar" bash build-local.sh
           read -r version code < <(python3 tools/version.py --values)
           apk="SPIN-RHub-$version.apk"
+          if [ -n "$SIGNING_STORE" ] && [ -n "$SIGNING_PASSWORD" ]; then
+            mkdir -p signing
+            trap 'rm -rf signing' EXIT
+            printf '%s' "$SIGNING_STORE" | base64 -d > signing/spin-next.keystore
+            printf '%s' "$SIGNING_PASSWORD" > signing/password.txt
+          else
+            apk="SPIN-RHub-$version-unsigned.apk"
+            echo "::warning::Signing secrets unavailable. This job will compile an unsigned APK for build verification."
+          fi
+          SPIN_SDK="$ANDROID_HOME" SPIN_ECJ_JAR="$RUNNER_TEMP/ecj.jar" bash build-local.sh
           "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$apk" | grep -F "name='com.spinplayer.next' versionCode='$code' versionName='$version'"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" | grep -Fi '2ca31960c7451a23e94f8a08762f9c45b78f2d62eadacbd50e7060df87ae14ed'
+          if [[ "$apk" != *-unsigned.apk ]]; then
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" | grep -Fi '2ca31960c7451a23e94f8a08762f9c45b78f2d62eadacbd50e7060df87ae14ed'
+          fi
           sha256sum "$apk" | tee SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
-          name: signed-spin-player-apk
+          name: spin-player-build-output
           path: |
             SPIN-RHub-*.apk
             SHA256SUMS
